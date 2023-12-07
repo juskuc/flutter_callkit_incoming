@@ -180,6 +180,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             result(self.callManager.activeCalls())
             break;
         case "endAllCalls":
+            self.activeCallUUID = nil
             self.callManager.endCallAlls()
             result("OK")
             break
@@ -234,6 +235,10 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
         NSLog("flutter: showCallkitIncoming \(String(describing: uuid)) \(String(describing: activeCallUUID))")
         if (activeCallUUID != nil) {
+            if (activeCallUUID == uuid) {
+                return
+            }
+
             self.sharedProvider?.reportCall(with: uuid!, endedAt: Date(), reason: .answeredElsewhere)
             return
         }
