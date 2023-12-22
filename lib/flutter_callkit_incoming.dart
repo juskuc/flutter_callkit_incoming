@@ -120,6 +120,10 @@ class FlutterCallkitIncoming {
     await _channel.invokeMethod("startCallIncoming");
   }
 
+  static Future updateCallerName(String id, {String callerName = 'Unknown'}) async {
+    await _channel.invokeMethod("updateCallerName", {'id': id, 'callerName': callerName});
+  }
+
   static CallEvent? _receiveCallEvent(dynamic data) {
     Event? event;
     Map<String, dynamic> body = {};

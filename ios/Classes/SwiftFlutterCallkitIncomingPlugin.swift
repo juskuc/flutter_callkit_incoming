@@ -191,6 +191,40 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             self.answerAction?.fulfill()
             result("OK")
             break
+        case "updateCallerName":
+           // Christmas tree :PP
+            if let args = call.arguments as? [String: Any] {
+
+
+                if let callId = args["id"] as? String {
+
+
+                    if let nameCaller = args["callerName"] as? String {
+
+
+                        let callUpdate = CXCallUpdate()
+                        callUpdate.localizedCallerName = nameCaller
+
+                        if let uuid = UUID(uuidString: callId) {
+                            self.sharedProvider?.reportCall(with: uuid, updated: callUpdate)
+                            result("OK")
+                        } else {
+
+                            // Handle invalid UUID string
+                        }
+                    } else {
+
+                        // Handle case where callerName is not a string
+                    }
+                } else {
+
+                    // Handle case where id is not a string
+                }
+            } else {
+
+                // Handle case where arguments are not a dictionary
+            }
+            break
         default:
             result(FlutterMethodNotImplemented)
         }
