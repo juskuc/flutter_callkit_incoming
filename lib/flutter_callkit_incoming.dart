@@ -12,10 +12,8 @@ import 'entities/entities.dart';
 /// * callConnected(dynamic)
 
 class FlutterCallkitIncoming {
-  static const MethodChannel _channel =
-      MethodChannel('flutter_callkit_incoming');
-  static const EventChannel _eventChannel =
-      EventChannel('flutter_callkit_incoming_events');
+  static const MethodChannel _channel = MethodChannel('flutter_callkit_incoming');
+  static const EventChannel _eventChannel = EventChannel('flutter_callkit_incoming_events');
 
   /// Listen to event callback from [FlutterCallkitIncoming].
   ///
@@ -34,8 +32,7 @@ class FlutterCallkitIncoming {
   /// Event.ACTION_CALL_TOGGLE_AUDIO_SESSION - only iOS
   /// Event.DID_UPDATE_DEVICE_PUSH_TOKEN_VOIP - only iOS
   /// }
-  static Stream<CallEvent?> get onEvent =>
-      _eventChannel.receiveBroadcastStream().map(_receiveCallEvent);
+  static Stream<CallEvent?> get onEvent => _eventChannel.receiveBroadcastStream().map(_receiveCallEvent);
 
   /// Show Callkit Incoming.
   /// On iOS, using Callkit. On Android, using a custom UI.
@@ -67,8 +64,7 @@ class FlutterCallkitIncoming {
   /// On iOS, using Callkit(update call ui).
   /// On Android, Nothing(only callback event listener).
   static Future<bool> isMuted(String id) async {
-    return (await _channel.invokeMethod("isMuted", {'id': id})) as bool? ??
-        false;
+    return (await _channel.invokeMethod("isMuted", {'id': id})) as bool? ?? false;
   }
 
   /// Hold an Ongoing call.
@@ -125,6 +121,17 @@ class FlutterCallkitIncoming {
   /// Only Android: show request permission post notification for Android 13+
   static Future requestNotificationPermission(dynamic data) async {
     return await _channel.invokeMethod("requestNotificationPermission", data);
+  }
+
+  /// Start incoming call
+  /// On iOS: start connection timer
+  /// On Android: not implemented
+  static Future startIncomingCall() async {
+    await _channel.invokeMethod("startCallIncoming");
+  }
+
+  static Future updateCallerName(String id, {String callerName = 'Unknown'}) async {
+    await _channel.invokeMethod("updateCallerName", {'id': id, 'callerName': callerName});
   }
 
   static CallEvent? _receiveCallEvent(dynamic data) {

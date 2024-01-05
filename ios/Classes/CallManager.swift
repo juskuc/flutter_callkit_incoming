@@ -172,5 +172,9 @@ class CallManager: NSObject {
         NotificationCenter.default.post(name: type(of: self).callsChangedNotification, object: self)
     }
     
-    
+    func updateCallerName(uuid: UUID, callerName: String) {
+        let callUpdate = CXCallUpdate()
+        callUpdate.localizedCallerName = callerName
+        self.sharedProvider?.reportCall(with: uuid, updated: callUpdate)
+    }
 }
