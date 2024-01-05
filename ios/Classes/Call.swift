@@ -212,7 +212,7 @@ public class Call: NSObject {
             self.supportsDTMF = ios["supportsDTMF"] as? Bool ?? true
             self.supportsHolding = ios["supportsHolding"] as? Bool ?? false
             self.supportsGrouping = ios["supportsGrouping"] as? Bool ?? false
-            self.supportsUngrouping = ios["supportsUngrouping"] as? Bool ?? falsefalse
+            self.supportsUngrouping = ios["supportsUngrouping"] as? Bool ?? false
             self.includesCallsInRecents = ios["includesCallsInRecents"] as? Bool ?? true
             self.ringtonePath = ios["ringtonePath"] as? String ?? ""
             self.configureAudioSession = ios["configureAudioSession"] as? Bool ?? true
@@ -224,7 +224,7 @@ public class Call: NSObject {
             self.iconName = args["iconName"] as? String ?? "CallKitLogo"
             self.handleType = args["handleType"] as? String ?? ""
             self.supportsVideo = args["supportsVideo"] as? Bool ?? true
-            self.maximumCallGroups = args["maximumCallGroups"] as? Int ?? 2
+            self.maximumCallGroups = args["maximumCallGroups"] as? Int ?? 1
             self.maximumCallsPerCallGroup =  args["maximumCallsPerCallGroup"] as? Int ?? 1
             self.supportsDTMF = args["supportsDTMF"] as? Bool ?? true
             self.supportsHolding = args["supportsHolding"] as? Bool ?? false
