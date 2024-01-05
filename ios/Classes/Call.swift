@@ -10,11 +10,11 @@ import AVFoundation
 
 public class Call: NSObject {
     
-    let uuid: UUID
-    let data: Data
-    let isOutGoing: Bool
+    public var uuid: UUID
+    public var data: Data
+    public var isOutGoing: Bool
     
-    var handle: String?
+    public var handle: String?
     
     var stateDidChange: (() -> Void)?
     var hasStartedConnectDidChange: (() -> Void)?
@@ -133,6 +133,7 @@ public class Call: NSObject {
     @objc public var handle: String
     @objc public var avatar: String
     @objc public var type: Int
+    @objc public var normalHandle: Int
     @objc public var duration: Int
     @objc public var extra: NSDictionary
     
@@ -161,17 +162,18 @@ public class Call: NSObject {
         self.handle = handle
         self.avatar = ""
         self.type = type
+        self.normalHandle = 0
         self.duration = 30000
         self.extra = [:]
         self.iconName = "CallKitLogo"
         self.handleType = ""
         self.supportsVideo = true
-        self.maximumCallGroups = 1
+        self.maximumCallGroups = 2
         self.maximumCallsPerCallGroup = 1
         self.supportsDTMF = true
-        self.supportsHolding = false
-        self.supportsGrouping = false
-        self.supportsUngrouping = false
+        self.supportsHolding = true
+        self.supportsGrouping = true
+        self.supportsUngrouping = true
         self.includesCallsInRecents = true
         self.ringtonePath = ""
         self.configureAudioSession = true
@@ -196,6 +198,7 @@ public class Call: NSObject {
         self.handle = args["handle"] as? String ?? ""
         self.avatar = args["avatar"] as? String ?? ""
         self.type = args["type"] as? Int ?? 0
+        self.normalHandle = args["normalHandle"] as? Int ?? 0
         self.duration = args["duration"] as? Int ?? 30000
         self.extra = args["extra"] as? NSDictionary ?? [:]
         
@@ -204,12 +207,12 @@ public class Call: NSObject {
             self.iconName = ios["iconName"] as? String ?? "CallKitLogo"
             self.handleType = ios["handleType"] as? String ?? ""
             self.supportsVideo = ios["supportsVideo"] as? Bool ?? true
-            self.maximumCallGroups = ios["maximumCallGroups"] as? Int ?? 1
+            self.maximumCallGroups = ios["maximumCallGroups"] as? Int ?? 2
             self.maximumCallsPerCallGroup = ios["maximumCallsPerCallGroup"] as? Int ?? 1
             self.supportsDTMF = ios["supportsDTMF"] as? Bool ?? true
-            self.supportsHolding = ios["supportsHolding"] as? Bool ?? false
-            self.supportsGrouping = ios["supportsGrouping"] as? Bool ?? false
-            self.supportsUngrouping = ios["supportsUngrouping"] as? Bool ?? false
+            self.supportsHolding = ios["supportsHolding"] as? Bool ?? true
+            self.supportsGrouping = ios["supportsGrouping"] as? Bool ?? true
+            self.supportsUngrouping = ios["supportsUngrouping"] as? Bool ?? true
             self.includesCallsInRecents = ios["includesCallsInRecents"] as? Bool ?? true
             self.ringtonePath = ios["ringtonePath"] as? String ?? ""
             self.configureAudioSession = ios["configureAudioSession"] as? Bool ?? true
@@ -221,12 +224,12 @@ public class Call: NSObject {
             self.iconName = args["iconName"] as? String ?? "CallKitLogo"
             self.handleType = args["handleType"] as? String ?? ""
             self.supportsVideo = args["supportsVideo"] as? Bool ?? true
-            self.maximumCallGroups = args["maximumCallGroups"] as? Int ?? 1
+            self.maximumCallGroups = args["maximumCallGroups"] as? Int ?? 2
             self.maximumCallsPerCallGroup =  args["maximumCallsPerCallGroup"] as? Int ?? 1
             self.supportsDTMF = args["supportsDTMF"] as? Bool ?? true
-            self.supportsHolding = args["supportsHolding"] as? Bool ?? false
-            self.supportsGrouping = args["supportsGrouping"] as? Bool ?? false
-            self.supportsUngrouping = args["supportsUngrouping"] as? Bool ?? false
+            self.supportsHolding = args["supportsHolding"] as? Bool ?? true
+            self.supportsGrouping = args["supportsGrouping"] as? Bool ?? true
+            self.supportsUngrouping = args["supportsUngrouping"] as? Bool ?? true
             self.includesCallsInRecents = args["includesCallsInRecents"] as? Bool ?? true
             self.ringtonePath = args["ringtonePath"] as? String ?? ""
             self.configureAudioSession = args["configureAudioSession"] as? Bool ?? true
@@ -237,7 +240,7 @@ public class Call: NSObject {
         }
     }
     
-    public func toJSON() -> [String: Any] {
+    open func toJSON() -> [String: Any] {
         let ios: [String : Any] = [
             "iconName": iconName,
             "handleType": handleType,
@@ -264,6 +267,7 @@ public class Call: NSObject {
             "handle": handle,
             "avatar": avatar,
             "type": type,
+            "normalHandle": normalHandle,
             "duration": duration,
             "extra": extra,
             "ios": ios
@@ -272,7 +276,36 @@ public class Call: NSObject {
     }
     
     func getEncryptHandle() -> String {
-        return String(format: "{\"nameCaller\":\"%@\", \"handle\":\"%@\"}", nameCaller, handle).encryptHandle()
+        if (normalHandle > 0) {
+            return handle
+        }
+        do {
+            var map: [String: Any] = [:]
+
+            map["nameCaller"] = nameCaller
+            map["handle"] = handle
+            
+            var mapExtras = extra as? [String: Any]
+            
+            if (mapExtras == nil) {
+                print("error casting dictionary to [String: Any]")
+                return String(format: "{\"nameCaller\":\"%@\", \"handle\":\"%@\"}", nameCaller, handle).encryptHandle()
+            }
+            
+            for (key, value) in mapExtras! {
+                map[key] = value
+            }
+            
+            let mapData = try JSONSerialization.data(withJSONObject: map, options: .prettyPrinted)
+
+            let mapString: String = String(data: mapData, encoding: .utf8) ?? ""
+
+            return mapString.encryptHandle()
+        } catch {
+            print("error encrypting call data")
+            return String(format: "{\"nameCaller\":\"%@\", \"handle\":\"%@\"}", nameCaller, handle).encryptHandle()
+        }
+       
     }
     
     
