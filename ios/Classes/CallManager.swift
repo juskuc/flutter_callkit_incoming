@@ -19,12 +19,6 @@ class CallManager: NSObject {
     func setSharedProvider(_ sharedProvider: CXProvider) {
         self.sharedProvider = sharedProvider
     }
-
-    func updateCallerName(uuid: UUID, callerName: String) {
-        let callUpdate = CXCallUpdate()
-        callUpdate.localizedCallerName = callerName
-        self.sharedProvider?.reportCall(with: uuid, updated: callUpdate)
-    }
     
     func startCall(_ data: Data) {
         let handle = CXHandle(type: self.getHandleType(data.handleType), value: data.getEncryptHandle())
@@ -178,5 +172,9 @@ class CallManager: NSObject {
         NotificationCenter.default.post(name: type(of: self).callsChangedNotification, object: self)
     }
     
-    
+    func updateCallerName(uuid: UUID, callerName: String) {
+        let callUpdate = CXCallUpdate()
+        callUpdate.localizedCallerName = callerName
+        self.sharedProvider?.reportCall(with: uuid, updated: callUpdate)
+    }
 }
