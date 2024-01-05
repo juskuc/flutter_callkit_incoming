@@ -38,7 +38,9 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     private var silenceEvents: Bool = false
     private let devicePushTokenVoIP = "DevicePushTokenVoIP"
 
-    
+    private var activeCallUUID : UUID?
+    private var answerAction: CXAnswerCallAction?
+
     private func sendEvent(_ event: String, _ body: [String : Any?]?) {
         if silenceEvents {
             print(event, " silenced")
@@ -287,11 +289,22 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         callUpdate.hasVideo = data.type > 0 ? true : false
         callUpdate.localizedCallerName = data.nameCaller
         
-        initCallkitProvider(data)
-        
+
         let uuid = UUID(uuidString: data.uuid)
+
+        if (activeCallUUID != nil) {
+            if (activeCallUUID == uuid) {
+                return
+            }
+
+            self.sharedProvider?.reportCall(with: uuid!, endedAt: Date(), reason: .answeredElsewhere)
+            return
+        }
         
         configurAudioSession()
+        initCallkitProvider(data)
+        activeCallUUID = uuid
+
         self.sharedProvider?.reportNewIncomingCall(with: uuid!, update: callUpdate) { error in
             if(error == nil) {
                 self.configurAudioSession()
@@ -560,12 +573,14 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             self?.sharedProvider?.reportOutgoingCall(with: call.uuid, connectedAt: call.connectedData)
         }
         self.answerCall = call
+        self.answerAction = action
         sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_ACCEPT, self.data?.toJSON())
         action.fulfill()
     }
     
     
     public func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
+        activeCallUUID = nil
         guard let call = self.callManager.callWithUUID(uuid: action.callUUID) else {
             if(self.answerCall == nil && self.outgoingCall == nil){
                 sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_TIMEOUT, self.data?.toJSON())
