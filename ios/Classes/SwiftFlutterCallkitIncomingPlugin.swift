@@ -489,10 +489,9 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
                     .allowBluetoothA2DP,
                     .duckOthers,
                     .allowBluetooth,
-                    .overrideMutedMicrophoneInterruption
                 ])
-                try session.setMode(self.getAudioSessionMode("voiceChat"))
-                try session.setActive(data?.audioSessionActive ?? true, options: .notifyOthersOnDeactivation)
+                try session.setMode(self.getAudioSessionMode(data?.audioSessionMode))
+                try session.setActive(data?.audioSessionActive ?? true)
                 try session.setPreferredSampleRate(data?.audioSessionPreferredSampleRate ?? 44100.0)
                 try session.setPreferredIOBufferDuration(data?.audioSessionPreferredIOBufferDuration ?? 0.005)
             }catch{
@@ -579,9 +578,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
             appDelegate.onAccept(call)
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(2000)) {
-            action.fulfill()
-        }
+        action.fulfill()
     }
     
     
