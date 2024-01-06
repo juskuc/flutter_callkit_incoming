@@ -127,6 +127,13 @@ class FlutterCallkitIncoming {
     await _channel.invokeMethod("updateCallerName", {'id': id, 'callerName': callerName});
   }
 
+  /// Start incoming call
+  /// On iOS: start connection timer
+  /// On Android: not implemented
+  static Future startIncomingCall() async {
+    await _channel.invokeMethod("startCallIncoming");
+  }
+
   static CallEvent? _receiveCallEvent(dynamic data) {
     Event? event;
     Map<String, dynamic> body = {};

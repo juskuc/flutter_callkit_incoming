@@ -39,7 +39,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     private let devicePushTokenVoIP = "DevicePushTokenVoIP"
 
     private var activeCallUUID : UUID?
-
+    private var answerAction: CXAnswerCallAction?
     
     private func sendEvent(_ event: String, _ body: [String : Any?]?) {
         if silenceEvents {
@@ -192,6 +192,10 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         case "getDevicePushTokenVoIP":
             result(self.getDevicePushTokenVoIP())
             break;
+        case "startCallIncoming":
+            self.answerAction?.fulfill()
+            result("OK")
+            break
         case "silenceEvents":
             guard let silence = call.arguments as? Bool else {
                 result("OK")
@@ -590,11 +594,11 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             self?.sharedProvider?.reportOutgoingCall(with: call.uuid, connectedAt: call.connectedData)
         }
         self.answerCall = call
+        self.answerAction = action
         sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_ACCEPT, self.data?.toJSON())
         if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
             appDelegate.onAccept(call)
         }
-        action.fulfill()
     }
 
 
