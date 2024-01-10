@@ -620,13 +620,17 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
                 appDelegate.onDecline(call)
             }
-            action.fulfill()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                action.fulfill()
+            }
         }else {
             sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_ENDED, call.data.toJSON())
             if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
                 appDelegate.onEnd(call)
             }
-            action.fulfill()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                action.fulfill()
+            }
         }
     }
 
