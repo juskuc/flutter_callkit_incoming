@@ -22,5 +22,6 @@ public protocol CallkitIncomingAppDelegate : NSObjectProtocol {
     func didActivateAudioSession(_ audioSession: AVAudioSession)
     
     func didDeactivateAudioSession(_ audioSession: AVAudioSession)
-    
+
+    func sendLog(_ message: String, data: Any)
 }
