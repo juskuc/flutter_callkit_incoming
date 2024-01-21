@@ -274,7 +274,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     }
     
     @objc public func showCallkitIncoming(_ data: Data, fromPushKit: Bool) {
-        NSLog("flutter: showCallkitIncoming")
         configurAudioSession()
 
         self.isFromPushKit = fromPushKit
@@ -296,6 +295,11 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
         let uuid = UUID(uuidString: data.uuid)
 
+        if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
+            appDelegate.sendLog("Swift: showCallkitIncoming", data: data.toJSON())
+            appDelegate.sendLog("Swift: showCallkitIncoming activeCallUUID", data: activeCallUUID?.uuidString ?? "nil")
+        }
+
         if (activeCallUUID != nil) {
             if (activeCallUUID == uuid) {
                 return
@@ -315,6 +319,10 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
                 self.callManager.addCall(call)
                 self.sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_INCOMING, data.toJSON())
                 self.endCallNotExist(data)
+            } else {
+                 if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
+                    appDelegate.sendLog("Swift: showCallkitIncoming error", data: error?.localizedDescription ?? "nil")
+                }
             }
         }
     }
@@ -487,17 +495,19 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     }
 
     func configurAudioSession(){
-        NSLog("flutter: configurAudioSession()")
         let session = AVAudioSession.sharedInstance()
         do{
             try session.setCategory(AVAudioSession.Category.playAndRecord, options: [
+                .defaultToSpeaker,
                 .allowBluetoothA2DP,
+                .allowAirPlay,
                 .allowBluetooth,
             ])
             try session.setMode(AVAudioSession.Mode.voiceChat)
             try session.setPreferredSampleRate(data?.audioSessionPreferredSampleRate ?? 44100.0)
             try session.setPreferredIOBufferDuration(data?.audioSessionPreferredIOBufferDuration ?? 0.005)
         }catch{
+
             NSLog("flutter: configurAudioSession() Error setting audio session properties: \(error)")
             print(error)
         }
