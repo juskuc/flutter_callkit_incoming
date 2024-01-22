@@ -295,11 +295,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
         let uuid = UUID(uuidString: data.uuid)
 
-        if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
-            appDelegate.sendLog("Swift: showCallkitIncoming", data: data.toJSON())
-            appDelegate.sendLog("Swift: showCallkitIncoming activeCallUUID", data: activeCallUUID?.uuidString ?? "nil")
-        }
-
         if (activeCallUUID != nil) {
             if (activeCallUUID == uuid) {
                 return
@@ -319,10 +314,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
                 self.callManager.addCall(call)
                 self.sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_INCOMING, data.toJSON())
                 self.endCallNotExist(data)
-            } else {
-                 if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
-                    appDelegate.sendLog("Swift: showCallkitIncoming error", data: error?.localizedDescription ?? "nil")
-                }
             }
         }
     }
