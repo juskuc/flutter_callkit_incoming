@@ -409,6 +409,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     }
 
     @objc public func startCall(_ data: Data, fromPushKit: Bool) {
+        configurAudioSession()
         self.isFromPushKit = fromPushKit
         if(fromPushKit){
             self.data = data
