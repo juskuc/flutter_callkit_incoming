@@ -40,7 +40,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
     private var activeCallUUID : UUID?
     private var answerAction: CXAnswerCallAction?
-    
+
     private func sendEvent(_ event: String, _ body: [String : Any?]?) {
         if silenceEvents {
             print(event, " silenced")
@@ -50,47 +50,136 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
                 handler?.send(event, body ?? [:])
             }
         }
-        
+
     }
-    
+
     @objc public func sendEventCustom(_ event: String, body: NSDictionary?) {
         streamHandlers.reap().forEach { handler in
             handler?.send(event, body ?? [:])
         }
     }
-    
+
     public static func sharePluginWithRegister(with registrar: FlutterPluginRegistrar) {
         if(sharedInstance == nil){
             sharedInstance = SwiftFlutterCallkitIncomingPlugin(messenger: registrar.messenger())
         }
         sharedInstance.shareHandlers(with: registrar)
     }
-    
+
     public static func register(with registrar: FlutterPluginRegistrar) {
         sharePluginWithRegister(with: registrar)
     }
-    
+
     private static func createMethodChannel(messenger: FlutterBinaryMessenger) -> FlutterMethodChannel {
         return FlutterMethodChannel(name: "flutter_callkit_incoming", binaryMessenger: messenger)
     }
-    
+
     private static func createEventChannel(messenger: FlutterBinaryMessenger) -> FlutterEventChannel {
         return FlutterEventChannel(name: "flutter_callkit_incoming_events", binaryMessenger: messenger)
     }
-    
+
     public init(messenger: FlutterBinaryMessenger) {
         callManager = CallManager()
     }
-    
+
     private func shareHandlers(with registrar: FlutterPluginRegistrar) {
         registrar.addMethodCallDelegate(self, channel: Self.createMethodChannel(messenger: registrar.messenger()))
         let eventsHandler = EventCallbackHandler()
         self.streamHandlers.append(eventsHandler)
         Self.createEventChannel(messenger: registrar.messenger()).setStreamHandler(eventsHandler)
     }
-    
+
+    func getDocumentsDirectory() -> URL {
+        let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+        return paths[0]
+    }
+
+    func writeToFile(content: String) {
+        let fileURL = getDocumentsDirectory().appendingPathComponent("call.txt")
+
+        // Create the file if it does not exist
+        if !FileManager.default.fileExists(atPath: fileURL.path) {
+            FileManager.default.createFile(atPath: fileURL.path, contents: nil)
+        }
+
+        do {
+            try content.write(to: fileURL, atomically: true, encoding: .utf8)
+        } catch {
+            print("Error writing to file: \(error)")
+        }
+    }
+
+    func readFromFile() -> String? {
+        let fileURL = getDocumentsDirectory().appendingPathComponent("call.txt")
+
+        // Check if the file exists before reading
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            do {
+                return try String(contentsOf: fileURL, encoding: .utf8)
+            } catch {
+                print("Error reading file: \(error)")
+                return nil
+            }
+        } else {
+            return nil
+        }
+    }
+
+    func clearFile() {
+        let fileURL = getDocumentsDirectory().appendingPathComponent("call.txt")
+
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            do {
+                try FileManager.default.removeItem(at: fileURL)
+            } catch {
+                print("Error deleting file: \(error)")
+            }
+        }
+    }
+
+    func setValueInUserDefaults(value: Any, forKey key: String) {
+        UserDefaults.standard.set(value, forKey: key)
+        UserDefaults.standard.synchronize()
+    }
+
+    func retrieveFromUserDefaults(key: String) -> Any? {
+        return UserDefaults.standard.value(forKey: key)
+    }
+
+    func deleteFromUserDefaults(key: String) {
+        UserDefaults.standard.removeObject(forKey: key)
+        UserDefaults.standard.synchronize()
+    }
+
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         switch call.method {
+        case "deleteFromUserDefaults":
+            guard let args = call.arguments as? [String: Any] ,
+                  let key = args["key"] as? String else {
+                result("OK")
+                return
+            }
+            clearFile()
+            result("OK")
+            break
+        case "retrieveFromUserDefaults":
+            guard let args = call.arguments as? [String: Any] ,
+                  let key = args["key"] as? String else {
+                result(nil)
+                return
+            }
+            result(readFromFile())
+            break
+        case "setValueInUserDefaults":
+            guard let args = call.arguments as? [String: Any] ,
+                  let value = args["value"] as? String,
+                  let key = args["key"] as? String else {
+                result("OK")
+                return
+            }
+            writeToFile(content: value)
+            result("OK")
+            break
         case "showCallkitIncoming":
             guard let args = call.arguments else {
                 result("OK")
@@ -98,7 +187,8 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             }
             if let getArgs = args as? [String: Any] {
                 self.data = Data(args: getArgs)
-                showCallkitIncoming(self.data!, fromPushKit: false)
+                let callerRegistrationId = getArgs["callerRegistrationId"] as? String ?? ""
+                showCallkitIncoming(self.data!, fromPushKit: false, callerRegistrationId: callerRegistrationId)
             }
             result("OK")
             break
@@ -139,7 +229,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
                 result("OK")
                 return
             }
-            
+
             self.muteCall(callId, isMuted: isMuted)
             result("OK")
             break
@@ -201,11 +291,11 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
                 result("OK")
                 return
             }
-            
+
             self.silenceEvents = silence
             result("OK")
             break;
-        case "requestNotificationPermission": 
+        case "requestNotificationPermission":
             result("OK")
             break
         case "hideCallkitIncoming":
@@ -255,16 +345,16 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             result(FlutterMethodNotImplemented)
         }
     }
-    
+
     @objc public func setDevicePushTokenVoIP(_ deviceToken: String) {
         UserDefaults.standard.set(deviceToken, forKey: devicePushTokenVoIP)
         self.sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_DID_UPDATE_DEVICE_PUSH_TOKEN_VOIP, ["deviceTokenVoIP":deviceToken])
     }
-    
+
     @objc public func getDevicePushTokenVoIP() -> String {
         return UserDefaults.standard.string(forKey: devicePushTokenVoIP) ?? ""
     }
-    
+
     @objc public func getAcceptedCall() -> Data? {
         NSLog("Call data ids \(String(describing: data?.uuid)) \(String(describing: answerCall?.uuid.uuidString))")
         if data?.uuid.lowercased() == answerCall?.uuid.uuidString.lowercased() {
@@ -272,8 +362,19 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         }
         return nil
     }
-    
-    @objc public func showCallkitIncoming(_ data: Data, fromPushKit: Bool) {
+
+    @objc public func showCallkitIncoming(_ data: Data, fromPushKit: Bool, callerRegistrationId: String) {
+        let uuid = UUID(uuidString: data.uuid)
+
+        let existingCall = readFromFile()
+
+        if (existingCall != nil) {
+            self.sharedProvider?.reportCall(with: uuid!, endedAt: Date(), reason: .answeredElsewhere)
+            return
+        }
+
+        writeToFile(content: callerRegistrationId)
+
         configurAudioSession()
 
         self.isFromPushKit = fromPushKit
@@ -292,17 +393,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         callUpdate.supportsUngrouping = data.supportsUngrouping
         callUpdate.hasVideo = data.type > 0 ? true : false
         callUpdate.localizedCallerName = data.nameCaller
-
-        let uuid = UUID(uuidString: data.uuid)
-
-        if (activeCallUUID != nil) {
-            if (activeCallUUID == uuid) {
-                return
-            }
-
-            self.sharedProvider?.reportCall(with: uuid!, endedAt: Date(), reason: .answeredElsewhere)
-            return
-        }
 
         initCallkitProvider(data)
         activeCallUUID = uuid

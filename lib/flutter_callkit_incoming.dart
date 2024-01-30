@@ -145,4 +145,16 @@ class FlutterCallkitIncoming {
     }
     return null;
   }
+
+  static Future setValueInUserDefaults(String key, dynamic value) async {
+    await _channel.invokeMethod("setValueInUserDefaults", {'key': key, 'value': value});
+  }
+
+  static Future retrieveFromUserDefaults(String key) async {
+    return await _channel.invokeMethod("retrieveFromUserDefaults", {'key': key});
+  }
+
+  static Future deleteFromUserDefaults(String key) async {
+    return await _channel.invokeMethod("deleteFromUserDefaults", {'key': key});
+  }
 }
