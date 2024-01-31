@@ -12,10 +12,12 @@ import AVFAudio
 public protocol CallkitIncomingAppDelegate : NSObjectProtocol {
     
     func onAccept(_ call: Call);
-    
-    func onDecline(_ call: Call);
-    
-    func onEnd(_ call: Call);
+
+    func onSilentlyReject(callerRegistrationId: String)
+
+    func onDecline(callerRegistrationId: String)
+
+    func onEnd(callerRegistrationId: String)
     
     func onTimeOut(_ call: Call);
 

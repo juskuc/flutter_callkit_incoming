@@ -369,6 +369,9 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         let existingCall = readFromFile()
 
         if (existingCall != nil) {
+            if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
+                appDelegate.onSilentlyReject(callerRegistrationId: callerRegistrationId)
+            }
             self.sharedProvider?.reportCall(with: uuid!, endedAt: Date(), reason: .answeredElsewhere)
             return
         }
@@ -710,19 +713,19 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         if (self.answerCall == nil && self.outgoingCall == nil) {
             sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_DECLINE, self.data?.toJSON())
             if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
-                appDelegate.onDecline(call)
+                let callerRegistrationId = readFromFile()
+                clearFile()
+                appDelegate.onDecline(callerRegistrationId: callerRegistrationId ?? "")
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                action.fulfill()
-            }
-        }else {
+            action.fulfill()
+        } else {
             sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_ENDED, call.data.toJSON())
             if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
-                appDelegate.onEnd(call)
+                let callerRegistrationId = readFromFile()
+                clearFile()
+                appDelegate.onEnd(callerRegistrationId: callerRegistrationId ?? "")
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                action.fulfill()
-            }
+            action.fulfill()
         }
     }
 
