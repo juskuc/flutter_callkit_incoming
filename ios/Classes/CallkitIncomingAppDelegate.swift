@@ -21,6 +21,12 @@ public protocol CallkitIncomingAppDelegate : NSObjectProtocol {
     
     func onTimeOut(_ call: Call);
 
+    func onStartRinging();
+
+    func onEndCallBeep();
+
+    func onConnectedCallBeep();
+
     func didActivateAudioSession(_ audioSession: AVAudioSession)
     
     func didDeactivateAudioSession(_ audioSession: AVAudioSession)

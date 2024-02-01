@@ -157,4 +157,8 @@ class FlutterCallkitIncoming {
   static Future deleteFromUserDefaults(String key) async {
     return await _channel.invokeMethod("deleteFromUserDefaults", {'key': key});
   }
+
+  static Future toggleSpeaker(bool isOn) async {
+    await _channel.invokeMethod("toggleSpeaker", {'isOn': isOn});
+  }
 }

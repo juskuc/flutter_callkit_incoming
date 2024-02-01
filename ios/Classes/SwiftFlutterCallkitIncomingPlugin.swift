@@ -269,6 +269,18 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
                     self.connectedCall(self.data!)
                 }
             }
+           if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
+                appDelegate.onConnectedCallBeep()
+            }
+            result("OK")
+            break
+        case "toggleSpeaker":
+            guard let args = call.arguments as? [String: Any] ,
+                  let isOn = args["isOn"] as? Bool else {
+                result("OK")
+                return
+            }
+            toggleAudioRoute(toSpeaker: isOn)
             result("OK")
             break
         case "activeCalls":
@@ -591,10 +603,25 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             try session.setMode(AVAudioSession.Mode.voiceChat)
             try session.setPreferredSampleRate(data?.audioSessionPreferredSampleRate ?? 44100.0)
             try session.setPreferredIOBufferDuration(data?.audioSessionPreferredIOBufferDuration ?? 0.005)
+            try session.setAggregatedIOPreference(AVAudioSession.IOType.aggregated)
         }catch{
 
             NSLog("flutter: configurAudioSession() Error setting audio session properties: \(error)")
             print(error)
+        }
+    }
+
+    func toggleAudioRoute(toSpeaker: Bool) {
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(.playAndRecord, mode: .voiceChat, options: [])
+            try session.setActive(true)
+
+            let output = toSpeaker ? AVAudioSession.PortOverride.speaker : .none
+            try session.overrideOutputAudioPort(output)
+
+        } catch {
+            print("Failed to toggle audio route: \(error)")
         }
     }
 
@@ -784,18 +811,21 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     }
 
     public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
-        if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
-            appDelegate.didActivateAudioSession(audioSession)
-        }
+        if (self.answerCall != nil) {
+            if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
+                appDelegate.onConnectedCallBeep()
+            }
+       }
 
-        if(self.answerCall?.hasConnected ?? false){
-            sendDefaultAudioInterruptionNofificationToStartAudioResource()
-            return
-        }
+        if (self.outgoingCall != nil) {
+            let hasConnected = self.outgoingCall?.hasConnected ?? false
 
-        if(self.outgoingCall?.hasConnected ?? false){
-            sendDefaultAudioInterruptionNofificationToStartAudioResource()
-            return
+            if (hasConnected == false) {
+              if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
+                 appDelegate.onStartRinging()
+              }
+            }
+
         }
 
         self.outgoingCall?.startCall(withAudioSession: audioSession) {success in
@@ -812,18 +842,16 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         }
         sendDefaultAudioInterruptionNofificationToStartAudioResource()
 
+        if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
+            appDelegate.didActivateAudioSession(audioSession)
+        }
 
         self.sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_TOGGLE_AUDIO_SESSION, [ "isActivate": true ])
     }
 
     public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
         if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
-            appDelegate.didDeactivateAudioSession(audioSession)
-        }
-
-        if self.outgoingCall?.isOnHold ?? false || self.answerCall?.isOnHold ?? false{
-            print("Call is on hold")
-            return
+            appDelegate.onEndCallBeep()
         }
 
         self.outgoingCall?.endCall()
@@ -837,7 +865,9 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         }
 
         self.callManager.removeAllCalls()
-        
+        if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
+            appDelegate.didDeactivateAudioSession(audioSession)
+        }
         self.sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_TOGGLE_AUDIO_SESSION, [ "isActivate": false ])
     }
     
