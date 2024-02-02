@@ -162,8 +162,8 @@ class FlutterCallkitIncoming {
     await _channel.invokeMethod("toggleSpeaker", {'isOn': isOn});
   }
 
-  static Future enableWebRTCAudio() async {
-    await _channel.invokeMethod("enableWebRTCAudio");
+  static Future enableWebRTCAudio(bool isReconnect) async {
+    await _channel.invokeMethod("enableWebRTCAudio", {'isReconnect': isReconnect});
   }
 
   static Future disableWebRTCAudio() async {
