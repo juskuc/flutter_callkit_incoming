@@ -225,8 +225,8 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     }
 
     func disableWebRTCAudio() {
-     RTCAudioSession.sharedInstance().audioSessionDidDeactivate(self.deactivatedAVAudioSession!)
-     RTCAudioSession.sharedInstance().isAudioEnabled = false
+//      RTCAudioSession.sharedInstance().audioSessionDidDeactivate(self.deactivatedAVAudioSession!)
+//      RTCAudioSession.sharedInstance().isAudioEnabled = false
     }
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -942,7 +942,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     }
 
     public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
-        deactivatedAVAudioSession = audioSession
         endedPlayer?.play()
 
         if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
@@ -960,6 +959,10 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         }
 
         self.callManager.removeAllCalls()
+
+        RTCAudioSession.sharedInstance().audioSessionDidDeactivate(audioSession)
+        RTCAudioSession.sharedInstance().isAudioEnabled = false
+
         if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
             appDelegate.didDeactivateAudioSession(audioSession)
         }
