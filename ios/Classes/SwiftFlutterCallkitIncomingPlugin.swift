@@ -217,15 +217,27 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
         connectedPlayer?.play()
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
+        let timerInterval = 0.1 // Adjust the interval as needed
+        var runCount = 0
 
-            if (isReconnect) {
-                RTCAudioSession.sharedInstance().audioSessionDidActivate( AVAudioSession.sharedInstance())
-            } else {
-                self.configurAudioSession()
-                RTCAudioSession.sharedInstance().audioSessionDidActivate(self.activatedAVAudioSession!)
+        let timer = Timer.scheduledTimer(withTimeInterval: timerInterval, repeats: true) { [weak self] timer in
+            if let activatedAVAudioSession = self?.activatedAVAudioSession {
+                runCount += 1
+
+                if runCount >= 100 {
+                    timer.invalidate() // Stop the timer after running 20 times
+                } else {
+                    DispatchQueue.main.async {
+                        if isReconnect {
+                            RTCAudioSession.sharedInstance().audioSessionDidActivate(AVAudioSession.sharedInstance())
+                        } else {
+                            self?.configurAudioSession()
+                            RTCAudioSession.sharedInstance().audioSessionDidActivate(activatedAVAudioSession)
+                        }
+                        RTCAudioSession.sharedInstance().isAudioEnabled = true
+                    }
+                }
             }
-           RTCAudioSession.sharedInstance().isAudioEnabled = true
         }
     }
 
