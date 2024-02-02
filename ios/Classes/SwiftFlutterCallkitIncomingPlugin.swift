@@ -217,26 +217,24 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
         connectedPlayer?.play()
 
-        let timerInterval = 0.1 // Adjust the interval as needed
+        let timerInterval = 100.0 // Adjust the interval in milliseconds (e.g., 100ms)
+        let maxRuns = 100 // Maximum number of times to run
+
         var runCount = 0
+        let timer = Timer.scheduledTimer(withTimeInterval: timerInterval / 1000, repeats: true) { [weak self, weak timer] _ in
+            runCount += 1
 
-        let timer = Timer.scheduledTimer(withTimeInterval: timerInterval, repeats: true) { [weak self] timer in
-            if let activatedAVAudioSession = self?.activatedAVAudioSession {
-                runCount += 1
-
-                if runCount >= 100 {
-                    timer.invalidate() // Stop the timer after running 20 times
+            if runCount >= maxRuns {
+                timer?.invalidate() // Stop the timer after maxRuns even if activatedAVAudioSession is still nil
+            } else if let activatedAVAudioSession = self?.activatedAVAudioSession {
+                if isReconnect {
+                    RTCAudioSession.sharedInstance().audioSessionDidActivate(AVAudioSession.sharedInstance())
                 } else {
-                    DispatchQueue.main.async {
-                        if isReconnect {
-                            RTCAudioSession.sharedInstance().audioSessionDidActivate(AVAudioSession.sharedInstance())
-                        } else {
-                            self?.configurAudioSession()
-                            RTCAudioSession.sharedInstance().audioSessionDidActivate(activatedAVAudioSession)
-                        }
-                        RTCAudioSession.sharedInstance().isAudioEnabled = true
-                    }
+                    self?.configurAudioSession()
+                    RTCAudioSession.sharedInstance().audioSessionDidActivate(activatedAVAudioSession)
                 }
+                RTCAudioSession.sharedInstance().isAudioEnabled = true
+                timer?.invalidate() // Stop the timer after running the code
             }
         }
     }
