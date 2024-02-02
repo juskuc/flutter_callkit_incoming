@@ -47,6 +47,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     private var reconnectPlayer: AVAudioPlayer?
 
     private var activatedAVAudioSession: AVAudioSession?
+    private var deactivatedAVAudioSession: AVAudioSession?
 
     private func sendEvent(_ event: String, _ body: [String : Any?]?) {
         if silenceEvents {
@@ -224,7 +225,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     }
 
     func disableWebRTCAudio() {
-     RTCAudioSession.sharedInstance().audioSessionDidDeactivate(self.activatedAVAudioSession!)
+     RTCAudioSession.sharedInstance().audioSessionDidDeactivate(self.deactivatedAVAudioSession!)
      RTCAudioSession.sharedInstance().isAudioEnabled = false
     }
 
@@ -270,6 +271,9 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             result("OK")
             break
         case "showCallkitIncoming":
+            RTCAudioSession.sharedInstance().useManualAudio = true
+            RTCAudioSession.sharedInstance().isAudioEnabled = false
+
             guard let args = call.arguments else {
                 result("OK")
                 return
@@ -289,6 +293,10 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
                 result("OK")
                 return
             }
+
+            RTCAudioSession.sharedInstance().useManualAudio = true
+            RTCAudioSession.sharedInstance().isAudioEnabled = false
+
             if let getArgs = args as? [String: Any] {
                 self.data = Data(args: getArgs)
                 self.startCall(self.data!, fromPushKit: false)
@@ -934,6 +942,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     }
 
     public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
+        deactivatedAVAudioSession = audioSession
         endedPlayer?.play()
 
         if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
