@@ -216,7 +216,8 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
         connectedPlayer?.play()
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
+            configurAudioSession()
             RTCAudioSession.sharedInstance().audioSessionDidActivate(self.activatedAVAudioSession!)
             RTCAudioSession.sharedInstance().isAudioEnabled = true
         }
