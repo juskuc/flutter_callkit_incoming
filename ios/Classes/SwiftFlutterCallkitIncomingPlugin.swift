@@ -210,7 +210,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         reconnectPlayer?.play()
     }
 
-    func enableWebRTCAudio() {
+    func enableWebRTCAudio(isReconnect: Bool = false) {
       // Stop ringing player
         reconnectPlayer?.stop()
         ringingPlayer?.stop()
@@ -218,9 +218,14 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         connectedPlayer?.play()
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
-            self.configurAudioSession()
-            RTCAudioSession.sharedInstance().audioSessionDidActivate(self.activatedAVAudioSession!)
-            RTCAudioSession.sharedInstance().isAudioEnabled = true
+
+            if (isReconnect) {
+                RTCAudioSession.sharedInstance().audioSessionDidActivate( AVAudioSession.sharedInstance())
+            } else {
+                self.configurAudioSession()
+                RTCAudioSession.sharedInstance().audioSessionDidActivate(self.activatedAVAudioSession!)
+            }
+           RTCAudioSession.sharedInstance().isAudioEnabled = true
         }
     }
 
@@ -236,7 +241,12 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             result("OK")
             break
         case "enableWebRTCAudio":
-            enableWebRTCAudio()
+           guard let args = call.arguments as? [String: Any] ,
+                 let isReconnect = args["isReconnect"] as? Bool else {
+               result("OK")
+               return
+           }
+            enableWebRTCAudio(isReconnect: isReconnect)
             result("OK")
             break
         case "disableWebRTCAudio":
@@ -692,7 +702,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         let session = AVAudioSession.sharedInstance()
         do{
             try session.setCategory(AVAudioSession.Category.playAndRecord, options: [
-                .defaultToSpeaker,
                 .allowBluetoothA2DP,
                 .allowAirPlay,
                 .allowBluetooth,
@@ -822,6 +831,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
 
     public func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
+        ringingPlayer?.stop()
         activeCallUUID = nil
         guard let call = self.callManager.callWithUUID(uuid: action.callUUID) else {
             if(self.answerCall == nil && self.outgoingCall == nil){
@@ -830,6 +840,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
                 sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_ENDED, self.data?.toJSON())
             }
             action.fail()
+            self.outgoingCall = nil
             return
         }
         call.endCall()
@@ -844,13 +855,14 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             action.fulfill()
         } else {
             sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_ENDED, call.data.toJSON())
-            if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
+             if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
                 let callerRegistrationId = readFromFile()
                 clearFile()
                 appDelegate.onEnd(callerRegistrationId: callerRegistrationId ?? "")
             }
             action.fulfill()
         }
+        self.outgoingCall = nil
     }
 
 
@@ -943,10 +955,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
     public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
         endedPlayer?.play()
-
-        if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
-            appDelegate.onEndCallBeep()
-        }
 
         self.outgoingCall?.endCall()
         if(self.outgoingCall != nil){
