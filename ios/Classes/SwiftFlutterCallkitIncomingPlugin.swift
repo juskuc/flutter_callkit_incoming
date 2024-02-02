@@ -217,26 +217,28 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
         connectedPlayer?.play()
 
-        let timerInterval = 100.0 // Adjust the interval in milliseconds (e.g., 100ms)
-        let maxRuns = 100 // Maximum number of times to run
+       let timerInterval = 100.0 // Adjust the interval in milliseconds (e.g., 100ms)
+       let maxRuns = 100 // Maximum number of times to run
 
-        var runCount = 0
-        let timer = Timer.scheduledTimer(withTimeInterval: timerInterval / 1000, repeats: true) { [weak self, weak timer] _ in
-            runCount += 1
+       var runCount = 0
+       var timer: Timer? // Declare the timer variable here
 
-            if runCount >= maxRuns {
-                timer?.invalidate() // Stop the timer after maxRuns even if activatedAVAudioSession is still nil
-            } else if let activatedAVAudioSession = self?.activatedAVAudioSession {
-                if isReconnect {
-                    RTCAudioSession.sharedInstance().audioSessionDidActivate(AVAudioSession.sharedInstance())
-                } else {
-                    self?.configurAudioSession()
-                    RTCAudioSession.sharedInstance().audioSessionDidActivate(activatedAVAudioSession)
-                }
-                RTCAudioSession.sharedInstance().isAudioEnabled = true
-                timer?.invalidate() // Stop the timer after running the code
-            }
-        }
+       timer = Timer.scheduledTimer(withTimeInterval: timerInterval / 1000, repeats: true) { [weak self] _ in
+           runCount += 1
+
+           if runCount >= maxRuns {
+               timer?.invalidate() // Stop the timer after maxRuns even if activatedAVAudioSession is still nil
+           } else if let activatedAVAudioSession = self?.activatedAVAudioSession {
+               if isReconnect {
+                   RTCAudioSession.sharedInstance().audioSessionDidActivate(AVAudioSession.sharedInstance())
+               } else {
+                   self?.configurAudioSession()
+                   RTCAudioSession.sharedInstance().audioSessionDidActivate(activatedAVAudioSession)
+               }
+               RTCAudioSession.sharedInstance().isAudioEnabled = true
+               timer?.invalidate() // Stop the timer after running the code
+           }
+       }
     }
 
     func disableWebRTCAudio() {
