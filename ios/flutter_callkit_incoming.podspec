@@ -14,8 +14,10 @@ Flutter Callkit Incoming
   s.author           = { 'Hien Nguyen' => 'hien@hiennv.com' }
   s.source           = { :path => '.' }
   s.source_files = 'Classes/**/*'
+  s.resources    = ['Assets/**.*']
   s.dependency 'Flutter'
   s.dependency 'CryptoSwift'
+  s.dependency 'WebRTC-SDK', '114.5735.08'
   s.platform = :ios, '10.0'
 
   # Flutter.framework does not contain a i386 slice.

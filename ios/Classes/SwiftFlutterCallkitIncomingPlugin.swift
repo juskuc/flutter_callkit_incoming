@@ -2,12 +2,13 @@ import Flutter
 import UIKit
 import CallKit
 import AVFoundation
+import WebRTC
 
 @available(iOS 10.0, *)
 public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProviderDelegate {
-    
+
     static let ACTION_DID_UPDATE_DEVICE_PUSH_TOKEN_VOIP = "com.hiennv.flutter_callkit_incoming.DID_UPDATE_DEVICE_PUSH_TOKEN_VOIP"
-    
+
     static let ACTION_CALL_INCOMING = "com.hiennv.flutter_callkit_incoming.ACTION_CALL_INCOMING"
     static let ACTION_CALL_START = "com.hiennv.flutter_callkit_incoming.ACTION_CALL_START"
     static let ACTION_CALL_ACCEPT = "com.hiennv.flutter_callkit_incoming.ACTION_CALL_ACCEPT"
@@ -15,24 +16,24 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     static let ACTION_CALL_ENDED = "com.hiennv.flutter_callkit_incoming.ACTION_CALL_ENDED"
     static let ACTION_CALL_TIMEOUT = "com.hiennv.flutter_callkit_incoming.ACTION_CALL_TIMEOUT"
     static let ACTION_CALL_CUSTOM = "com.hiennv.flutter_callkit_incoming.ACTION_CALL_CUSTOM"
-    
+
     static let ACTION_CALL_TOGGLE_HOLD = "com.hiennv.flutter_callkit_incoming.ACTION_CALL_TOGGLE_HOLD"
     static let ACTION_CALL_TOGGLE_MUTE = "com.hiennv.flutter_callkit_incoming.ACTION_CALL_TOGGLE_MUTE"
     static let ACTION_CALL_TOGGLE_DMTF = "com.hiennv.flutter_callkit_incoming.ACTION_CALL_TOGGLE_DMTF"
     static let ACTION_CALL_TOGGLE_GROUP = "com.hiennv.flutter_callkit_incoming.ACTION_CALL_TOGGLE_GROUP"
     static let ACTION_CALL_TOGGLE_AUDIO_SESSION = "com.hiennv.flutter_callkit_incoming.ACTION_CALL_TOGGLE_AUDIO_SESSION"
-    
+
     @objc public private(set) static var sharedInstance: SwiftFlutterCallkitIncomingPlugin!
-    
+
     private var streamHandlers: WeakArray<EventCallbackHandler> = WeakArray([])
-    
+
     private var callManager: CallManager
-    
+
     private var sharedProvider: CXProvider? = nil
-    
+
     private var outgoingCall : Call?
     private var answerCall : Call?
-    
+
     private var data: Data?
     private var isFromPushKit: Bool = false
     private var silenceEvents: Bool = false
@@ -40,6 +41,12 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
     private var activeCallUUID : UUID?
     private var answerAction: CXAnswerCallAction?
+    private var ringingPlayer: AVAudioPlayer?
+    private var connectedPlayer: AVAudioPlayer?
+    private var endedPlayer: AVAudioPlayer?
+    private var reconnectPlayer: AVAudioPlayer?
+
+    private var activatedAVAudioSession: AVAudioSession?
 
     private func sendEvent(_ event: String, _ body: [String : Any?]?) {
         if silenceEvents {
@@ -80,6 +87,49 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
     public init(messenger: FlutterBinaryMessenger) {
         callManager = CallManager()
+        super.init()
+        setupAudioPlayers()
+    }
+
+    private func setupAudioPlayers() {
+        // Prepare the ringing sound player
+        if let ringingUrl = Bundle(for: type(of: self)).url(forResource: "sound_outgoing_call", withExtension: "mp3") {
+            do {
+                ringingPlayer = try AVAudioPlayer(contentsOf: ringingUrl)
+                ringingPlayer?.numberOfLoops = -1 // Loop indefinitely
+            } catch {
+                print("Could not load ringing sound file")
+            }
+        }
+
+
+        // Prepare the connected sound player
+        if let connectedUrl = Bundle(for: type(of: self)).url(forResource: "sound_pickup", withExtension: "mp3") {
+            do {
+                connectedPlayer = try AVAudioPlayer(contentsOf: connectedUrl)
+                connectedPlayer?.numberOfLoops = 0 // Play once
+            } catch {
+                print("Could not load connected sound file")
+            }
+        }
+
+        if let endedUrl = Bundle(for: type(of: self)).url(forResource: "sound_end", withExtension: "mp3") {
+            do {
+                endedPlayer = try AVAudioPlayer(contentsOf: endedUrl)
+                endedPlayer?.numberOfLoops = 0 // Play once
+            } catch {
+                print("Could not load ended sound file")
+            }
+        }
+
+        if let reconnectUrl = Bundle(for: type(of: self)).url(forResource: "sound_reconnecting", withExtension: "mp3") {
+            do {
+                reconnectPlayer = try AVAudioPlayer(contentsOf: reconnectUrl)
+                reconnectPlayer?.numberOfLoops = -1 // Play once
+            } catch {
+                print("Could not load reconnect sound file")
+            }
+        }
     }
 
     private func shareHandlers(with registrar: FlutterPluginRegistrar) {
@@ -151,8 +201,46 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         UserDefaults.standard.synchronize()
     }
 
+    func reconnectWebRTCAudio() {
+        if (reconnectPlayer?.isPlaying == true) {
+            return
+        }
+
+        reconnectPlayer?.play()
+    }
+
+    func enableWebRTCAudio() {
+      // Stop ringing player
+        reconnectPlayer?.stop()
+        ringingPlayer?.stop()
+
+        connectedPlayer?.play()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            RTCAudioSession.sharedInstance().audioSessionDidActivate(self.activatedAVAudioSession!)
+            RTCAudioSession.sharedInstance().isAudioEnabled = true
+        }
+    }
+
+    func disableWebRTCAudio() {
+     RTCAudioSession.sharedInstance().audioSessionDidDeactivate(self.activatedAVAudioSession!)
+     RTCAudioSession.sharedInstance().isAudioEnabled = false
+    }
+
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         switch call.method {
+        case "reconnectWebRTCAudio":
+            reconnectWebRTCAudio()
+            result("OK")
+            break
+        case "enableWebRTCAudio":
+            enableWebRTCAudio()
+            result("OK")
+            break
+        case "disableWebRTCAudio":
+            disableWebRTCAudio()
+            result("OK")
+            break
         case "deleteFromUserDefaults":
             guard let args = call.arguments as? [String: Any] ,
                   let key = args["key"] as? String else {
@@ -811,21 +899,16 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     }
 
     public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
-        if (self.answerCall != nil) {
-            if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
-                appDelegate.onConnectedCallBeep()
-            }
-       }
+        activatedAVAudioSession = audioSession
 
         if (self.outgoingCall != nil) {
-            let hasConnected = self.outgoingCall?.hasConnected ?? false
-
-            if (hasConnected == false) {
-              if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
-                 appDelegate.onStartRinging()
-              }
+            if (self.ringingPlayer?.isPlaying == false) {
+                self.ringingPlayer?.play()
             }
+        }
 
+        if (self.answerCall != nil) {
+            self.connectedPlayer?.play()
         }
 
         self.outgoingCall?.startCall(withAudioSession: audioSession) {success in
@@ -850,6 +933,8 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     }
 
     public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
+        endedPlayer?.play()
+
         if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
             appDelegate.onEndCallBeep()
         }
