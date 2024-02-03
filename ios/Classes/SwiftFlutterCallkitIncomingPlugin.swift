@@ -227,8 +227,8 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
            runCount += 1
 
            if runCount >= maxRuns {
-               reconnectPlayer?.stop()
-               ringingPlayer?.stop()
+               self.reconnectPlayer?.stop()
+               self.ringingPlayer?.stop()
                timer?.invalidate() // Stop the timer after maxRuns even if activatedAVAudioSession is still nil
            } else if let activatedAVAudioSession = self?.activatedAVAudioSession {
                if isReconnect {
@@ -238,8 +238,8 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
                    RTCAudioSession.sharedInstance().audioSessionDidActivate(activatedAVAudioSession)
                }
                RTCAudioSession.sharedInstance().isAudioEnabled = true
-               reconnectPlayer?.stop()
-               ringingPlayer?.stop()
+               self.self.reconnectPlayer?.stop()
+               self.self.ringingPlayer?.stop()
                timer?.invalidate() // Stop the timer after running the code
            }
        }
