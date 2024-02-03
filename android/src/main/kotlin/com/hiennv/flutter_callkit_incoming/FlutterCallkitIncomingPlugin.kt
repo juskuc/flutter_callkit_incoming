@@ -272,6 +272,12 @@ class FlutterCallkitIncomingPlugin : FlutterPlugin, MethodCallHandler, ActivityA
                     result.success("OK")
                 }
 
+                "reconnectWebRTCAudio" -> {
+                    telecomUtilities.reconnectWebRTCAudio()
+
+                    result.success("OK")
+                }
+
                 "endAllCalls" -> {
                     val calls = getDataActiveCalls(context)
                     calls.forEach {

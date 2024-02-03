@@ -8,6 +8,7 @@ import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.src.main.kotlin.com.hiennv.flutter_callkit_incoming.AudioPlayer
 import android.telecom.CallAudioState
 import android.telecom.Connection
 import android.telecom.PhoneAccount
@@ -33,6 +34,7 @@ class TelecomUtilities(private val applicationContext : Context) {
 	private lateinit var telecomManager: TelecomManager
 	private lateinit var handle: PhoneAccountHandle
 	private lateinit var telephonyManager: TelephonyManager
+	private lateinit var audioPlayer: AudioPlayer
 
 	private var requiredPermissions: Array<String>
 
@@ -61,7 +63,7 @@ class TelecomUtilities(private val applicationContext : Context) {
 			.build()
 
 		telephonyManager = applicationContext.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
-
+		audioPlayer = AudioPlayer(appContext)
 		telecomManager = applicationContext.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
 		telecomManager.registerPhoneAccount(account)
 
@@ -124,15 +126,20 @@ class TelecomUtilities(private val applicationContext : Context) {
 		extras.putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, handle)
 		extras.putParcelable(TelecomManager.EXTRA_OUTGOING_CALL_EXTRAS, callExtras)
 		telecomManager.placeCall(uri, extras)
+
+		audioPlayer.playDialingSound()
 	}
 
 	@RequiresApi(Build.VERSION_CODES.M)
 	fun endCall(data: Data) {
+
 		logToFile("[TelecomUtilities] endCall -- UUID: ${data.uuid}")
 
 		val uuid: String = data.uuid
 		val connection = TelecomConnectionService.getConnection(uuid)
 		connection?.onDisconnect()
+		audioPlayer.playCallEndSound()
+
 	}
 
 	@RequiresApi(Build.VERSION_CODES.M)
@@ -178,7 +185,13 @@ class TelecomUtilities(private val applicationContext : Context) {
 		connection.onCallAudioStateChanged(newAudioState)
 	}
 
+	fun reconnectWebRTCAudio() {
+		audioPlayer.playReconnectingSound()
+	}
+
 	fun acceptCall(data: Data) {
+
+		audioPlayer.playPickUpSound()
 		val uuid : String = data.uuid
 
 		val connection = TelecomConnectionService.getConnection(uuid)
