@@ -1,5 +1,6 @@
 package com.hiennv.flutter_callkit_incoming.telecom
 
+
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.ComponentName
@@ -23,9 +24,10 @@ import java.io.File
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import java.util.UUID
+
 
 // the most important thing this does is registering the phone account
 @RequiresApi(Build.VERSION_CODES.M)
@@ -116,18 +118,25 @@ class TelecomUtilities(private val applicationContext : Context) {
 
 		val uuid = UUID.fromString(data.uuid)
 
+		val isVideo = data.type == 1
 		val number : String = data.handle
 		val uri = Uri.fromParts(PhoneAccount.SCHEME_TEL, number, null)
 		callExtras.putString(CallkitConstants.EXTRA_CALLKIT_HANDLE, number)
 		callExtras.putString(CallkitConstants.EXTRA_CALLKIT_ID, uuid.toString())
+		callExtras.putBoolean("isVideo", isVideo)
 
 		logToFile("[TelecomUtilities] startCall -- number: $number")
 
 		extras.putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, handle)
 		extras.putParcelable(TelecomManager.EXTRA_OUTGOING_CALL_EXTRAS, callExtras)
 		telecomManager.placeCall(uri, extras)
-
 		audioPlayer.playDialingSound()
+	}
+
+	fun enableConnectionSpeaker(isVideo: Boolean, uuid: String) {
+		val connection = TelecomConnectionService.getConnection(uuid)
+
+		connection?.setAudioRoute(if (isVideo) CallAudioState.ROUTE_SPEAKER else CallAudioState.ROUTE_EARPIECE)
 	}
 
 	@RequiresApi(Build.VERSION_CODES.M)
@@ -190,12 +199,13 @@ class TelecomUtilities(private val applicationContext : Context) {
 	}
 
 	fun acceptCall(data: Data) {
-
 		audioPlayer.playPickUpSound()
 		val uuid : String = data.uuid
+		val isVideo : Boolean = data.isVideo
 
 		val connection = TelecomConnectionService.getConnection(uuid)
 		logToFile("[TelecomUtilities] acceptCall -- UUID = $uuid connection exists? ${connection!=null}")
+		enableConnectionSpeaker(isVideo, uuid)
 
 		// avoid infinite loop by not calling onAnswer if the state isn't already ACTIVE
 		if (connection?.state != Connection.STATE_ACTIVE) connection?.onAnswer()

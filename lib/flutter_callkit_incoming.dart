@@ -84,8 +84,8 @@ class FlutterCallkitIncoming {
   /// Set call has been connected successfully.
   /// On iOS, using Callkit(update a history into the Phone app).
   /// On Android, Nothing(only callback event listener).
-  static Future setCallConnected(String id) async {
-    await _channel.invokeMethod("callConnected", {'id': id});
+  static Future setCallConnected(String id, bool isVideo) async {
+    await _channel.invokeMethod("callConnected", {'id': id, 'isVideo': isVideo});
   }
 
   /// End all calls.

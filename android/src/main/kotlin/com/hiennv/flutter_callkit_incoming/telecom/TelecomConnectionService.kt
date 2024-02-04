@@ -124,7 +124,7 @@ class TelecomConnectionService : ConnectionService() {
 
 		var currentConnections: MutableMap<String?, TelecomConnection> = HashMap()
 
-		fun getConnection(connectionId: String?): Connection? {
+		fun getConnection(connectionId: String?): TelecomConnection? {
 			return if (currentConnections.containsKey(connectionId)) {
 				currentConnections[connectionId]
 			} else null
