@@ -15,6 +15,10 @@ class CallManager: NSObject {
     private var sharedProvider: CXProvider? = nil
     private(set) var calls = [Call]()
     
+    public override init() {
+        super.init()
+    }
+    
     
     func setSharedProvider(_ sharedProvider: CXProvider) {
         self.sharedProvider = sharedProvider
@@ -27,46 +31,34 @@ class CallManager: NSObject {
     }
     
     func startCall(_ data: Data) {
-        let handle = CXHandle(type: self.getHandleType(data.handleType), value: data.getEncryptHandle())
+        let handle = CXHandle(type: .generic, value: data.nameCaller)
         let uuid = UUID(uuidString: data.uuid)
         let startCallAction = CXStartCallAction(call: uuid!, handle: handle)
         startCallAction.isVideo = data.type > 0
-        let callTransaction = CXTransaction()
-        callTransaction.addAction(startCallAction)
-        //requestCall
-        self.requestCall(callTransaction, action: "startCall", completion: { _ in
-            let callUpdate = CXCallUpdate()
-            callUpdate.remoteHandle = handle
-            callUpdate.supportsDTMF = data.supportsDTMF
-            callUpdate.supportsHolding = data.supportsHolding
-            callUpdate.supportsGrouping = data.supportsGrouping
-            callUpdate.supportsUngrouping = data.supportsUngrouping
-            callUpdate.hasVideo = data.type > 0 ? true : false
-            callUpdate.localizedCallerName = data.nameCaller
-            self.sharedProvider?.reportCall(with: uuid!, updated: callUpdate)
-        })
+        let callTransaction = CXTransaction(action: startCallAction)
+
+        self.requestCall(callTransaction)
     }
     
     func muteCall(call: Call, isMuted: Bool) {
         let muteAction = CXSetMutedCallAction(call: call.uuid, muted: isMuted)
         let callTransaction = CXTransaction()
         callTransaction.addAction(muteAction)
-        self.requestCall(callTransaction, action: "muteCall")
+        self.requestCall(callTransaction)
     }
     
     func holdCall(call: Call, onHold: Bool) {
         let muteAction = CXSetHeldCallAction(call: call.uuid, onHold: onHold)
         let callTransaction = CXTransaction()
         callTransaction.addAction(muteAction)
-        self.requestCall(callTransaction, action: "holdCall")
+        self.requestCall(callTransaction)
     }
     
     func endCall(call: Call) {
         let endCallAction = CXEndCallAction(call: call.uuid)
         let callTransaction = CXTransaction()
         callTransaction.addAction(endCallAction)
-        //requestCall
-        self.requestCall(callTransaction, action: "endCall")
+        self.requestCall(callTransaction)
     }
     
     func connectedCall(call: Call) {
@@ -78,9 +70,9 @@ class CallManager: NSObject {
         let calls = callController.callObserver.calls
         for call in calls {
             let endCallAction = CXEndCallAction(call: call.uuid)
-            let callTransaction = CXTransaction()
-            callTransaction.addAction(endCallAction)
-            self.requestCall(callTransaction, action: "endCallAlls")
+            let callTransaction = CXTransaction(action: endCallAction)
+
+            self.requestCall(callTransaction)
         }
     }
     
@@ -109,19 +101,10 @@ class CallManager: NSObject {
     }
     
     
-    private func requestCall(_ transaction: CXTransaction, action: String, completion: ((Bool) -> Void)? = nil) {
+    private func requestCall(_ transaction: CXTransaction) {
         callController.request(transaction){ error in
             if let error = error {
-                //fail
-                print("Error requesting transaction: \(error)")
-            }else {
-                if(action == "startCall"){
-                    //TODO: push notification for Start Call
-                }else if(action == "endCall" || action == "endCallAlls"){
-                    //TODO: push notification for End Call
-                }
-                completion?(error == nil)
-                print("Requested transaction successfully: \(action)")
+                print("[FLUTTER][requestTransaction] Error: \(error.localizedDescription)")
             }
         }
     }

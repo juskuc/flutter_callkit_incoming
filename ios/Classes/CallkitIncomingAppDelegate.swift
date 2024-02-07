@@ -21,6 +21,8 @@ public protocol CallkitIncomingAppDelegate : NSObjectProtocol {
     
     func onTimeOut(_ call: Call);
 
+    func onMissedCall();
+
     func onStartRinging();
 
     func onEndCallBeep();

@@ -173,4 +173,8 @@ class FlutterCallkitIncoming {
   static Future reconnectWebRTCAudio() async {
     await _channel.invokeMethod("reconnectWebRTCAudio");
   }
+
+  static Future fulfillEndCall() async {
+    await _channel.invokeMethod("fulfillEndCall");
+  }
 }
