@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/services.dart';
 
@@ -50,6 +51,11 @@ class FlutterCallkitIncoming {
   /// On iOS, using Callkit(create a history into the Phone app).
   /// On Android, Nothing(only callback event listener).
   static Future startCall(CallKitParams params, String callId) async {
+    if (Platform.isAndroid) {
+      await _channel.invokeMethod("startCall", params.toJson());
+
+      return;
+    }
     await _channel.invokeMethod("startCall", {'params': params.toJson(), 'callId': callId});
   }
 
