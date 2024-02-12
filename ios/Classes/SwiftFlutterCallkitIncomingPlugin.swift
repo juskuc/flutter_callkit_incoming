@@ -52,6 +52,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     private var deactivatedAVAudioSession: AVAudioSession?
     private var isVideoCall = false
     private var isCallEndedByCallkitClick = true
+    private var shouldClearFile = true
 
     private func sendEvent(_ event: String, _ body: [String : Any?]?) {
         if silenceEvents {
@@ -342,10 +343,13 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             if let getArgs = args as? [String: Any] {
                 self.data = Data(args: getArgs["params"] as! [String: Any])
                 let callId = getArgs["callId"] as? String ?? ""
+                self.isVideoCall = self.data!.type > 0 ? true : false
 
                 if (self.activeCallUUID != nil) {
                     self.callManager.endCallAlls()
                 }
+
+                configurAudioSession()
 
                 self.activeCallUUID = UUID(uuidString: callId)
 
@@ -404,6 +408,16 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             result("OK")
             break
         case "fulfillEndCall":
+            if (self.shouldClearFile) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    self.clearFile()
+                    self.endCallAction?.fulfill()
+                    self.endCallAction = nil
+                }
+                result("OK")
+                return
+            }
+
             self.endCallAction?.fulfill()
             self.endCallAction = nil
             result("OK")
@@ -784,7 +798,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
            try session.setCategory(AVAudioSession.Category.playAndRecord, options: options)
 
            if self.isVideoCall {
-               try session.setMode(AVAudioSession.Mode.voiceChat)
+               try session.setMode(AVAudioSession.Mode.videoChat)
            }
            else {
                try session.setMode(AVAudioSession.Mode.voiceChat)
@@ -916,6 +930,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
 
     public func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
+        self.shouldClearFile = false
         let isEndedByMeThroughCallkit = isCallEndedByCallkitClick
         self.isCallEndedByCallkitClick = true
         ringingPlayer?.stop()
@@ -938,7 +953,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
                 if (isEndedByMeThroughCallkit) {
                     let callerRegistrationId = readFromFile()
-                    clearFile()
+                    self.shouldClearFile = true
                     appDelegate.onDecline(callerRegistrationId: callerRegistrationId ?? "", declinedCallUUID: action.callUUID.uuidString.lowercased())
                 } else {
                     appDelegate.onMissedCall();
@@ -949,13 +964,14 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             if (isEndedByMeThroughCallkit) {
                 if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
                     let callerRegistrationId = readFromFile()
-                    clearFile()
+                    self.shouldClearFile = true
                     appDelegate.onEnd(callerRegistrationId: callerRegistrationId ?? "", endedCallUUID: action.callUUID.uuidString.lowercased())
                 }
             } else {
                 action.fulfill()
             }
         }
+
         self.outgoingCall = nil
     }
 
