@@ -10,14 +10,13 @@ import AVFAudio
 
 
 public protocol CallkitIncomingAppDelegate : NSObjectProtocol {
-    
     func onAccept(_ call: Call);
 
-    func onSilentlyReject(callerRegistrationId: String)
+    func onSilentlyReject(callerRegistrationId: String, rejectedCallUUID: String);
 
-    func onDecline(callerRegistrationId: String)
+    func onDecline(callerRegistrationId: String, declinedCallUUID: String);
 
-    func onEnd(callerRegistrationId: String)
+    func onEnd(callerRegistrationId: String, endedCallUUID: String);
     
     func onTimeOut(_ call: Call);
 
@@ -26,6 +25,8 @@ public protocol CallkitIncomingAppDelegate : NSObjectProtocol {
     func onStartRinging();
 
     func onEndCallBeep();
+
+    func onEnableSpeaker(isEnabled: Bool);
 
     func onConnectedCallBeep();
 

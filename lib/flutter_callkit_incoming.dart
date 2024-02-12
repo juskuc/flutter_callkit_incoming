@@ -49,8 +49,8 @@ class FlutterCallkitIncoming {
   /// Start an Outgoing call.
   /// On iOS, using Callkit(create a history into the Phone app).
   /// On Android, Nothing(only callback event listener).
-  static Future startCall(CallKitParams params) async {
-    await _channel.invokeMethod("startCall", params.toJson());
+  static Future startCall(CallKitParams params, String callId) async {
+    await _channel.invokeMethod("startCall", {'params': params.toJson(), 'callId': callId});
   }
 
   /// Muting an Ongoing call.
@@ -176,5 +176,17 @@ class FlutterCallkitIncoming {
 
   static Future fulfillEndCall() async {
     await _channel.invokeMethod("fulfillEndCall");
+  }
+
+  static Future exit() async {
+    await _channel.invokeMethod("exit");
+  }
+
+  static Future getActiveCallUUID() async {
+    return await _channel.invokeMethod("getActiveCallUUID");
+  }
+
+  static Future setActiveCallUUID(String callId) async {
+    await _channel.invokeMethod("setActiveCallUUID", {'callId': callId});
   }
 }
