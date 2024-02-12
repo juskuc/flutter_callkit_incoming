@@ -260,6 +260,10 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         switch call.method {
+        case "clearActiveCallUUID":
+            self.activeCallUUID = nil
+            result("OK")
+            break
         case "setActiveCallUUID":
             guard let args = call.arguments as? [String: Any] ,
                   let callId = args["id"] as? String else {

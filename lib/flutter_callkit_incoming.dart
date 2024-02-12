@@ -189,4 +189,8 @@ class FlutterCallkitIncoming {
   static Future setActiveCallUUID(String callId) async {
     await _channel.invokeMethod("setActiveCallUUID", {'callId': callId});
   }
+
+  static Future clearActiveCallUUID() async {
+    await _channel.invokeMethod("clearActiveCallUUID");
+  }
 }
