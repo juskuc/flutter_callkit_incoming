@@ -221,10 +221,9 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
     func enableWebRTCAudio(isReconnect: Bool = false) {
         // Stop ringing player
-        reconnectPlayer?.stop()
-        ringingPlayer?.stop()
-
-        connectedPlayer?.play()
+        self.reconnectPlayer?.stop()
+        self.ringingPlayer?.stop()
+        self.connectedPlayer?.play()
 
         DispatchQueue.main.asyncAfter(deadline:  .now() + 1.0) {
             let timerInterval = 100.0 // Adjust the interval in milliseconds (e.g., 100ms)
@@ -241,6 +240,9 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
                     self?.ringingPlayer?.stop()
                     timer?.invalidate() // Stop the timer after maxRuns even if activatedAVAudioSession is still nil
                 } else if let activatedAVAudioSession = self?.activatedAVAudioSession {
+                    self?.reconnectPlayer?.stop()
+                    self?.ringingPlayer?.stop()
+
                     if isReconnect {
                         RTCAudioSession.sharedInstance().audioSessionDidActivate(AVAudioSession.sharedInstance())
                     } else {
@@ -248,8 +250,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
                     }
                     RTCAudioSession.sharedInstance().isAudioEnabled = true
 
-                    self?.reconnectPlayer?.stop()
-                    self?.ringingPlayer?.stop()
                     timer?.invalidate() // Stop the timer after running the code
                 }
             }
@@ -572,8 +572,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
         writeToFile(content: callerRegistrationId)
         self.isVideoCall = data.type > 0 ? true : false
-
-        configureRTCAudioSession(isVideoCall: self.isVideoCall)
+        self.isSpeakerEnabled = self.isVideoCall
 
         self.isFromPushKit = fromPushKit
         if(fromPushKit){
@@ -1066,6 +1065,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     }
 
     public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
+        let audioSession = AVAudioSession.sharedInstance()
         endedPlayer?.play()
 
         self.outgoingCall?.endCall()
@@ -1114,7 +1114,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
         switch reason {
         case .override:
-            checkIfInterruptionUnhandled()
+            /*checkIfInterruptionUnhandled*/()
         case .oldDeviceUnavailable, .newDeviceAvailable:
             defineAndSetOutput()
         case .categoryChange:
@@ -1145,6 +1145,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     private func defineAndSetOutput() {
         let rtcSession = RTCAudioSession.sharedInstance()
            rtcSession.lockForConfiguration()
+            NSLog("defineAndSetOutput to speaker: \(self.isSpeakerEnabled)")
             if self.isSpeakerEnabled {
                 setOutputToSpeaker()
            } else {
