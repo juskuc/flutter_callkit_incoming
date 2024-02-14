@@ -53,6 +53,8 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     private var isVideoCall = false
     private var isCallEndedByCallkitClick = true
     private var shouldClearFile = true
+    private var interrupted = false
+    private var isSpeakerEnabled = false
 
     private func sendEvent(_ event: String, _ body: [String : Any?]?) {
         if silenceEvents {
@@ -94,6 +96,8 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     public init(messenger: FlutterBinaryMessenger) {
         self.callManager = CallManager()
         super.init()
+
+        setupNotifications()
         setupAudioPlayers()
     }
 
@@ -244,10 +248,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
                     }
                     RTCAudioSession.sharedInstance().isAudioEnabled = true
 
-                    if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
-                        appDelegate.onEnableSpeaker(isEnabled: self?.isVideoCall == true)
-                    }
-
                     self?.reconnectPlayer?.stop()
                     self?.ringingPlayer?.stop()
                     timer?.invalidate() // Stop the timer after running the code
@@ -261,6 +261,17 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         switch call.method {
+        case "setIsSpeakerEnabled":
+            guard let args = call.arguments as? [String: Any] ,
+                  let isSpeakerEnabled = args["isSpeakerEnabled"] as? Bool else {
+                result("OK")
+                return
+            }
+            self.isSpeakerEnabled = isSpeakerEnabled
+
+            defineAndSetOutput()
+            result("OK")
+            break
         case "clearActiveCallUUID":
             self.activeCallUUID = nil
             result("OK")
@@ -344,12 +355,14 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
                 self.data = Data(args: getArgs["params"] as! [String: Any])
                 let callId = getArgs["callId"] as? String ?? ""
                 self.isVideoCall = self.data!.type > 0 ? true : false
-
+                self.isSpeakerEnabled = self.isVideoCall
                 if (self.activeCallUUID != nil) {
                     self.callManager.endCallAlls()
                 }
 
-                configurAudioSession()
+                configureRTCAudioSession(isVideoCall: self.isVideoCall)
+                self.ringingPlayer?.stop()
+                self.ringingPlayer?.play()
 
                 self.activeCallUUID = UUID(uuidString: callId)
 
@@ -434,9 +447,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
                     self.connectedCall(self.data!)
                 }
             }
-            if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
-                appDelegate.onConnectedCallBeep()
-            }
             result("OK")
             break
         case "toggleSpeaker":
@@ -453,7 +463,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             break;
         case "endAllCalls":
             self.isCallEndedByCallkitClick = false
-//             self.activeCallUUID = nil
             self.callManager.endCallAlls()
             result("OK")
             break
@@ -564,7 +573,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         writeToFile(content: callerRegistrationId)
         self.isVideoCall = data.type > 0 ? true : false
 
-        configurAudioSession()
+        configureRTCAudioSession(isVideoCall: self.isVideoCall)
 
         self.isFromPushKit = fromPushKit
         if(fromPushKit){
@@ -782,36 +791,34 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         //         NotificationCenter.default.post(name: AVAudioSession.interruptionNotification, object: self, userInfo: userInfo)
     }
 
-    func configurAudioSession(){
-        let session = AVAudioSession.sharedInstance()
-       do {
-           var options: AVAudioSession.CategoryOptions = []
+    func configureRTCAudioSession(isVideoCall: Bool){
+        let session = RTCAudioSession.sharedInstance()
 
-           if self.isVideoCall {
-               options.insert(.defaultToSpeaker)
-           }
+        var options: AVAudioSession.CategoryOptions = []
 
-           options.insert(.allowBluetoothA2DP)
-           options.insert(.allowAirPlay)
-           options.insert(.allowBluetooth)
+        if isVideoCall {
+            options.insert(.defaultToSpeaker)
+        }
 
-           try session.setCategory(AVAudioSession.Category.playAndRecord, options: options)
+        options.insert(.allowBluetoothA2DP)
+        options.insert(.allowAirPlay)
+        options.insert(.allowBluetooth)
 
-           if self.isVideoCall {
-               try session.setMode(AVAudioSession.Mode.videoChat)
-           }
-           else {
-               try session.setMode(AVAudioSession.Mode.voiceChat)
-           }
-
-           try session.setPreferredSampleRate(data?.audioSessionPreferredSampleRate ?? 44100.0)
-           try session.setPreferredIOBufferDuration(data?.audioSessionPreferredIOBufferDuration ?? 0.005)
-
-       } catch{
-
-           NSLog("flutter: configurAudioSession() Error setting audio session properties: \(error)")
-           print(error)
-       }
+        do {
+            session.lockForConfiguration()
+            try session.setCategory(AVAudioSession.Category.playAndRecord.rawValue, with: options)
+            if isVideoCall {
+                try session.setMode(AVAudioSession.Mode.videoChat.rawValue)
+            } else {
+                try session.setMode(AVAudioSession.Mode.voiceChat.rawValue)
+            }
+            try session.setPreferredSampleRate(data?.audioSessionPreferredSampleRate ?? 44100.0)
+            try session.setPreferredIOBufferDuration(data?.audioSessionPreferredIOBufferDuration ?? 0.005)
+            try session.overrideOutputAudioPort(isVideoCall ? .speaker : .none)
+            session.unlockForConfiguration()
+        } catch {
+            print("Error setting audio session properties: \(error)")
+        }
     }
 
     func toggleAudioRoute(toSpeaker: Bool) {
@@ -1090,6 +1097,79 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         self.sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_TOGGLE_HOLD, [ "id": id, "isOnHold": isOnHold ])
     }
 
+    func setupNotifications() {
+        // Get the default notification center instance.
+        let nc = NotificationCenter.default
+        nc.addObserver(self,
+                       selector: #selector(handleRouteChange),
+                       name: AVAudioSession.routeChangeNotification,
+                       object: nil)
+    }
+
+
+    @objc func handleRouteChange(notification: Notification) {
+        guard let userInfo = notification.userInfo else { return }
+        guard let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt else { return }
+        guard let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else { return }
+
+        switch reason {
+        case .override:
+            checkIfInterruptionUnhandled()
+        case .oldDeviceUnavailable, .newDeviceAvailable:
+            defineAndSetOutput()
+        case .categoryChange:
+            break
+        default:
+            break
+        }
+
+        if (reason != .override) {
+            defineAndSetOutput()
+        }
+
+
+        let rtcSession = RTCAudioSession.sharedInstance()
+
+        if !interrupted,
+           rtcSession.category != AVAudioSession.Category.playAndRecord.rawValue {
+            NSLog("rtc session category is not playandrecord")
+        }
+    }
+
+    func checkIfInterruptionUnhandled() {
+          guard interrupted else { return }
+          defineAndSetOutput()
+      }
+
+
+    private func defineAndSetOutput() {
+        let rtcSession = RTCAudioSession.sharedInstance()
+           rtcSession.lockForConfiguration()
+            if self.isSpeakerEnabled {
+                setOutputToSpeaker()
+           } else {
+               setOutputToDevice()
+           }
+           rtcSession.unlockForConfiguration()
+       }
+
+       private func setOutputToDevice() {
+           let rtcSession = RTCAudioSession.sharedInstance()
+           do {
+               try rtcSession.overrideOutputAudioPort(.none)
+           } catch {
+               NSLog("setOutputToDevice error: \(error)")
+           }
+       }
+
+       func setOutputToSpeaker() {
+           let rtcSession = RTCAudioSession.sharedInstance()
+           do {
+               try rtcSession.overrideOutputAudioPort(.speaker)
+           } catch {
+               NSLog("setOutputToSpeaker error: \(error)")
+           }
+       }
 }
 
 class EventCallbackHandler: NSObject, FlutterStreamHandler {
