@@ -12,6 +12,7 @@ import android.os.*
 import android.src.main.kotlin.com.hiennv.flutter_callkit_incoming.AudioPlayer
 import android.text.TextUtils
 import com.hiennv.flutter_callkit_incoming.telecom.TelecomConnectionService.Companion.applicationContext
+import android.content.ContentResolver
 
 class CallkitSoundPlayerService : Service() {
 
@@ -28,8 +29,7 @@ class CallkitSoundPlayerService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         this.prepare()
-        audioPlayer = AudioPlayer(applicationContext)
-        audioPlayer?.playRingingSound()
+        this.playSound(intent)
         this.playVibrator()
         return START_STICKY;
     }
@@ -40,8 +40,6 @@ class CallkitSoundPlayerService : Service() {
         mediaPlayer?.release()
         vibrator?.cancel()
 
-        audioPlayer?.stop()
-        audioPlayer = null
         mediaPlayer = null
         vibrator = null
     }
@@ -85,13 +83,10 @@ class CallkitSoundPlayerService : Service() {
             CallkitConstants.EXTRA_CALLKIT_RINGTONE_PATH,
             ""
         )
-        var uri = sound?.let { getRingtoneUri(it) }
-        if (uri == null) {
-            uri = RingtoneManager.getActualDefaultRingtoneUri(
-                this@CallkitSoundPlayerService,
-                RingtoneManager.TYPE_RINGTONE
-            )
-        }
+        var uri =  Uri.parse(
+            ContentResolver.SCHEME_ANDROID_RESOURCE + "://" +
+                    applicationContext.applicationContext.packageName + "/raw/sound_incoming_call"
+        )
         try {
             mediaPlayer(uri!!)
         } catch (e: Exception) {
