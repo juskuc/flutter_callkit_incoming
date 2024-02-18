@@ -9,7 +9,6 @@ import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.*
-import android.src.main.kotlin.com.hiennv.flutter_callkit_incoming.AudioPlayer
 import android.text.TextUtils
 import com.hiennv.flutter_callkit_incoming.telecom.TelecomConnectionService.Companion.applicationContext
 import android.content.ContentResolver
@@ -21,7 +20,6 @@ class CallkitSoundPlayerService : Service() {
 
     private var mediaPlayer: MediaPlayer? = null
     private var data: Bundle? = null
-    private var audioPlayer: AudioPlayer? = null
 
     override fun onBind(p0: Intent?): IBinder? {
         return null

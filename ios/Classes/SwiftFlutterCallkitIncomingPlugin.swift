@@ -169,6 +169,40 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         }
     }
 
+    func writeExistingCallTimestampToFile() {
+        let fileURL = getDocumentsDirectory().appendingPathComponent("call_timestamp.txt")
+
+        // Create the file if it does not exist
+        if !FileManager.default.fileExists(atPath: fileURL.path) {
+            FileManager.default.createFile(atPath: fileURL.path, contents: nil)
+        }
+
+        // Write unix timestamp in milliseconds
+        let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
+        do {
+            try String(timestamp).write(to: fileURL, atomically: true, encoding: .utf8)
+        } catch {
+            print("Error writing to file: \(error)")
+        }
+    }
+
+    func readCrashFlagFile() -> Bool {
+        let fileURL = getDocumentsDirectory().appendingPathComponent("crash_flag.txt")
+
+        // Check if the file exists before reading
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            do {
+              // Read if content is true or false
+                let content = try String(contentsOf: fileURL, encoding: .utf8)
+                return content == "true"
+            } catch {
+                return false
+            }
+        } else {
+            return false
+        }
+    }
+
     func readFromFile() -> String? {
         let fileURL = getDocumentsDirectory().appendingPathComponent("call.txt")
 
@@ -558,6 +592,12 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     ) {
         let uuid = UUID(uuidString: data.uuid)
 
+        let isCrashFlagExisting = readCrashFlagFile()
+
+        if (isCrashFlagExisting) {
+            activeCallUUID = nil
+        }
+
         if (activeCallUUID != nil)  {
             if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
                 appDelegate.onSilentlyReject(callerRegistrationId: callerRegistrationId, rejectedCallUUID: uuid!.uuidString)
@@ -569,7 +609,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             return
         }
         self.activeCallUUID = uuid
-
+        writeExistingCallTimestampToFile()
         writeToFile(content: callerRegistrationId)
         self.isVideoCall = data.type > 0 ? true : false
         self.isSpeakerEnabled = self.isVideoCall
