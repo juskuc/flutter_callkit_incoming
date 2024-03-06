@@ -350,6 +350,15 @@ class FlutterCallkitIncomingPlugin : FlutterPlugin, MethodCallHandler, ActivityA
                         telecomUtilities.setAudioRoute(data)
                     }
                 }
+
+                "toggleSpeaker" -> {
+                    val data = call.arguments as? Map<*, *>
+                    val isOn = data?.get("isOn") as? Boolean ?: false
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        telecomUtilities.enableConnectionSpeaker(isOn)
+                    }
+                }
             }
         } catch (error: Exception) {
             result.error("error", error.message, "")

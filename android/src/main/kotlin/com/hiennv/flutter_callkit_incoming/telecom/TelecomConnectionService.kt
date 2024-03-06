@@ -98,6 +98,7 @@ class TelecomConnectionService : ConnectionService() {
 		connection.setInitializing()
 		connection.extras = extras
 		currentConnections[extras.getString(EXTRA_CALLKIT_ID)] = connection
+		activeCallUUID = extras.getString(EXTRA_CALLKIT_ID)
 
 		return connection
 	}
@@ -123,6 +124,8 @@ class TelecomConnectionService : ConnectionService() {
 		var applicationContext: Context? = null
 
 		var currentConnections: MutableMap<String?, TelecomConnection> = HashMap()
+
+		var activeCallUUID: String? = null
 
 		fun getConnection(connectionId: String?): TelecomConnection? {
 			return if (currentConnections.containsKey(connectionId)) {

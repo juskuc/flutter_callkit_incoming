@@ -133,10 +133,22 @@ class TelecomUtilities(private val applicationContext : Context) {
 		audioPlayer.playDialingSound()
 	}
 
-	fun enableConnectionSpeaker(isVideo: Boolean, uuid: String) {
-		val connection = TelecomConnectionService.getConnection(uuid)
+	fun enableConnectionSpeaker(isOn: Boolean) {
+		val connectionUUID = TelecomConnectionService.activeCallUUID
 
-		connection?.setAudioRoute(if (isVideo) CallAudioState.ROUTE_SPEAKER else CallAudioState.ROUTE_EARPIECE)
+		if (connectionUUID == null) {
+			logToFile("[TelecomUtilities] enableConnectionSpeaker -- connectionUUID is null")
+			return
+		}
+
+		val connection = TelecomConnectionService.getConnection(connectionUUID)
+
+		if (connection == null) {
+			logToFile("[TelecomUtilities] enableConnectionSpeaker -- connection is null")
+			return
+		}
+
+		connection.setAudioRoute(if (isOn) CallAudioState.ROUTE_SPEAKER else CallAudioState.ROUTE_EARPIECE)
 	}
 
 	@RequiresApi(Build.VERSION_CODES.M)
@@ -205,7 +217,7 @@ class TelecomUtilities(private val applicationContext : Context) {
 
 		val connection = TelecomConnectionService.getConnection(uuid)
 		logToFile("[TelecomUtilities] acceptCall -- UUID = $uuid connection exists? ${connection!=null}")
-		enableConnectionSpeaker(isVideo, uuid)
+		enableConnectionSpeaker(isVideo)
 
 		// avoid infinite loop by not calling onAnswer if the state isn't already ACTIVE
 		if (connection?.state != Connection.STATE_ACTIVE) connection?.onAnswer()
