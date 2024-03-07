@@ -1076,6 +1076,9 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     }
 
     public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
+        if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
+            appDelegate.sendLog("AudioSession didActivate", data: [])
+        }
         activatedAVAudioSession = audioSession
 
         if (self.outgoingCall != nil) {
@@ -1172,7 +1175,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
         if !interrupted,
            rtcSession.category != AVAudioSession.Category.playAndRecord.rawValue {
-            NSLog("rtc session category is not playandrecord")
+            NSLog("rtc session category is not playAndRecord")
         }
     }
 
@@ -1184,33 +1187,67 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
     private func defineAndSetOutput() {
         let rtcSession = RTCAudioSession.sharedInstance()
-           rtcSession.lockForConfiguration()
-            NSLog("defineAndSetOutput to speaker: \(self.isSpeakerEnabled)")
+        do {
+            rtcSession.lockForConfiguration()
             if self.isSpeakerEnabled {
-                setOutputToSpeaker()
-           } else {
-               setOutputToDevice()
+                 setOutputToSpeaker()
+            } else {
+                setOutputToDevice()
+            }
+            rtcSession.unlockForConfiguration()
+        } catch {
+            if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
+                appDelegate.sendLog("defineAndSetOutput error: \(error)", data: [])
+            }
+            NSLog("defineAndSetOutput error: \(error)")
+        }
+   }
+
+   private func setOutputToDevice() {
+       let rtcSession = RTCAudioSession.sharedInstance()
+       do {
+           try rtcSession.overrideOutputAudioPort(.none)
+       } catch {
+           if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
+               appDelegate.sendLog("RTC setOutputToDevice error: \(error)", data: [])
            }
-           rtcSession.unlockForConfiguration()
+           NSLog("setOutputToDevice error: \(error)")
        }
 
-       private func setOutputToDevice() {
-           let rtcSession = RTCAudioSession.sharedInstance()
-           do {
-               try rtcSession.overrideOutputAudioPort(.none)
-           } catch {
-               NSLog("setOutputToDevice error: \(error)")
-           }
+       let audioSession = AVAudioSession.sharedInstance()
+
+       do {
+            try audioSession.overrideOutputAudioPort(.none)
+       } catch {
+            if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
+                 appDelegate.sendLog("AV setOutputToDevice error: \(error)", data: [])
+            }
+            NSLog("setOutputToDevice error: \(error)")
+       }
+   }
+
+   func setOutputToSpeaker() {
+       let rtcSession = RTCAudioSession.sharedInstance()
+       do {
+           try rtcSession.overrideOutputAudioPort(.speaker)
+       } catch {
+            if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
+                 appDelegate.sendLog("RTC setOutputToSpeaker error: \(error)", data: [])
+            }
+           NSLog("setOutputToSpeaker error: \(error)")
        }
 
-       func setOutputToSpeaker() {
-           let rtcSession = RTCAudioSession.sharedInstance()
-           do {
-               try rtcSession.overrideOutputAudioPort(.speaker)
-           } catch {
-               NSLog("setOutputToSpeaker error: \(error)")
-           }
+       let audioSession = AVAudioSession.sharedInstance()
+
+       do {
+            try audioSession.overrideOutputAudioPort(.speaker)
+       } catch {
+            if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
+                 appDelegate.sendLog("AV setOutputToSpeaker error: \(error)", data: [])
+            }
+            NSLog("setOutputToSpeaker error: \(error)")
        }
+   }
 }
 
 class EventCallbackHandler: NSObject, FlutterStreamHandler {
