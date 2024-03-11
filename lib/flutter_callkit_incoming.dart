@@ -188,18 +188,6 @@ class FlutterCallkitIncoming {
     await _channel.invokeMethod("exit");
   }
 
-  static Future getActiveCallUUID() async {
-    return await _channel.invokeMethod("getActiveCallUUID");
-  }
-
-  static Future setActiveCallUUID(String callId) async {
-    await _channel.invokeMethod("setActiveCallUUID", {'callId': callId});
-  }
-
-  static Future clearActiveCallUUID() async {
-    await _channel.invokeMethod("clearActiveCallUUID");
-  }
-
   static Future setIsSpeakerEnabled(bool isSpeakerEnabled) async {
     await _channel.invokeMethod("setIsSpeakerEnabled", {'isSpeakerEnabled': isSpeakerEnabled});
   }

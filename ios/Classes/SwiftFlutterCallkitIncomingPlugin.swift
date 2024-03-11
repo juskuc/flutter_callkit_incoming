@@ -6,7 +6,7 @@ import WebRTC
 import Foundation
 
 @available(iOS 10.0, *)
-public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProviderDelegate {
+public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProviderDelegate, CXCallObserverDelegate {
 
     static let ACTION_DID_UPDATE_DEVICE_PUSH_TOKEN_VOIP = "com.hiennv.flutter_callkit_incoming.DID_UPDATE_DEVICE_PUSH_TOKEN_VOIP"
 
@@ -29,7 +29,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     private var streamHandlers: WeakArray<EventCallbackHandler> = WeakArray([])
 
     private var callManager: CallManager
-
+    private var callObserver: CXCallObserver!
     private var sharedProvider: CXProvider? = nil
 
     private var outgoingCall : Call?
@@ -55,6 +55,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     private var shouldClearFile = true
     private var interrupted = false
     private var isSpeakerEnabled = false
+    private var isCallkitInProgress = false
 
     private func sendEvent(_ event: String, _ body: [String : Any?]?) {
         if silenceEvents {
@@ -95,8 +96,10 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
     public init(messenger: FlutterBinaryMessenger) {
         self.callManager = CallManager()
+        callObserver = CXCallObserver()
         super.init()
 
+        callObserver.setDelegate(self, queue: nil)
         setupNotifications()
         setupAudioPlayers()
     }
@@ -306,28 +309,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             defineAndSetOutput()
             result("OK")
             break
-        case "clearActiveCallUUID":
-            self.activeCallUUID = nil
-            result("OK")
-            break
-        case "setActiveCallUUID":
-            guard let args = call.arguments as? [String: Any] ,
-                  let callId = args["id"] as? String else {
-                result("OK")
-                return
-            }
-
-            if (self.activeCallUUID != nil) {
-                result(false)
-                return
-            }
-
-            self.activeCallUUID = UUID(uuidString: callId)
-            result(true)
-            break
-        case "getActiveCallUUID":
-            result(self.activeCallUUID?.uuidString.lowercased())
-            break
         case "exit":
             exit(0)
             break
@@ -390,9 +371,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
                 let callId = getArgs["callId"] as? String ?? ""
                 self.isVideoCall = self.data!.type > 0 ? true : false
                 self.isSpeakerEnabled = self.isVideoCall
-                if (self.activeCallUUID != nil) {
-                    self.callManager.endCallAlls()
-                }
 
                 configureRTCAudioSession(isVideoCall: self.isVideoCall)
                 self.ringingPlayer?.stop()
@@ -591,24 +569,16 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         completion: ((Error?) -> Void)?
     ) {
         let uuid = UUID(uuidString: data.uuid)
-
-        let isCrashFlagExisting = readCrashFlagFile()
-
-        if (isCrashFlagExisting) {
-            activeCallUUID = nil
-        }
-
-        if (activeCallUUID != nil)  {
+        
+        if (self.isCallkitInProgress == true)  {
             if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
                 appDelegate.onSilentlyReject(callerRegistrationId: callerRegistrationId, rejectedCallUUID: uuid!.uuidString)
             }
 
-            self.sharedProvider?.reportCall(with: uuid!, endedAt: Date(), reason: .answeredElsewhere)
-
-            completion?(nil)
+            self.isCallkitInProgress = false
             return
         }
-        self.activeCallUUID = uuid
+
         writeExistingCallTimestampToFile()
         writeToFile(content: callerRegistrationId)
         self.isVideoCall = data.type > 0 ? true : false
@@ -746,7 +716,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
 
     func callEndTimeout(_ data: Data) {
-        self.activeCallUUID = nil
         self.saveEndCall(data.uuid, 3)
         guard let call = self.callManager.callWithUUID(uuid: UUID(uuidString: data.uuid)!) else {
             return
@@ -980,7 +949,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         let isEndedByMeThroughCallkit = isCallEndedByCallkitClick
         self.isCallEndedByCallkitClick = true
         ringingPlayer?.stop()
-        self.activeCallUUID = nil
         guard let call = self.callManager.callWithUUID(uuid: action.callUUID) else {
             if(self.answerCall == nil && self.outgoingCall == nil){
                 sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_TIMEOUT, self.data?.toJSON())
@@ -1121,8 +1089,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             self.answerCall = nil
         }
 
-        self.callManager.removeAllCalls()
-
         RTCAudioSession.sharedInstance().audioSessionDidDeactivate(audioSession)
         RTCAudioSession.sharedInstance().isAudioEnabled = false
 
@@ -1248,6 +1214,19 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             NSLog("setOutputToSpeaker error: \(error)")
        }
    }
+    
+    public func callObserver(_ callObserver: CXCallObserver, callChanged call: CXCall) {
+        if call.isOutgoing {
+            self.isCallkitInProgress = true
+            return
+       }
+
+       if call.hasEnded {
+          self.isCallkitInProgress = false
+          return
+       }
+
+    }
 }
 
 class EventCallbackHandler: NSObject, FlutterStreamHandler {
