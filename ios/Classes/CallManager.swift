@@ -11,7 +11,7 @@ import CallKit
 @available(iOS 10.0, *)
 class CallManager: NSObject {
     
-    private let callController = CXCallController()
+    let callController = CXCallController()
     private var sharedProvider: CXProvider? = nil
     private(set) var calls = [Call]()
     

@@ -229,7 +229,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             do {
                 try FileManager.default.removeItem(at: fileURL)
             } catch {
-                print("Error deleting file: \(error)")
+                print("Error deleting file: \(error)")g
             }
         }
     }
@@ -351,7 +351,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
                 self.data = Data(args: getArgs)
                 let callerRegistrationId = getArgs["callerRegistrationId"] as? String ?? ""
                 let completion = getArgs["completion"] as? ((Error?) -> Void)? ?? nil
-                showCallkitIncoming(self.data!, fromPushKit: false, callerRegistrationId: callerRegistrationId, completion: completion)
+                endAllCallsAndShowIncomingCall(self.data!, fromPushKit: false, callerRegistrationId: callerRegistrationId, completion: completion)
             }
             result("OK")
             break
@@ -434,11 +434,8 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             break
         case "fulfillEndCall":
             if (self.shouldClearFile) {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                    self.clearFile()
-                    self.endCallAction?.fulfill()
-                    self.endCallAction = nil
-                }
+                self.endCallAction?.fulfill()
+                self.endCallAction = nil
                 result("OK")
                 return
             }
@@ -561,6 +558,53 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         }
         return nil
     }
+    
+    @objc public func endAllCallsAndShowIncomingCall(
+        _ data: Data,
+        fromPushKit: Bool,
+        callerRegistrationId: String,
+        completion: ((Error?) -> Void)?
+    ) {
+        self.isCallEndedByCallkitClick = true
+
+        let callController = self.callManager.callController
+
+        // Check if there are any existing calls
+        if callController.callObserver.calls.isEmpty {
+            // If there are no existing calls, directly show incoming call
+            showCallkitIncoming(data, fromPushKit: fromPushKit, callerRegistrationId: callerRegistrationId, completion: completion)
+            return
+        }
+
+        // Iterate through existing calls and create end call actions
+        var endCallActions: [CXEndCallAction] = []
+        for call in callController.callObserver.calls {
+            let endCallAction = CXEndCallAction(call: call.uuid)
+            endCallActions.append(endCallAction)
+        }
+
+        // Create a transaction and add end call actions
+        let endCallTransaction = CXTransaction()
+
+        // add end call actions
+        for endCallAction in endCallActions {
+            endCallTransaction.addAction(endCallAction)
+        }
+
+        // Request the transaction to end all existing calls
+        callController.request(endCallTransaction) { error in
+            if let error = error {
+                // Handle error appropriately
+            } else {
+                // Give some time to end previous calls, then show incoming call
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) {
+                    self.showCallkitIncoming(data, fromPushKit: fromPushKit, callerRegistrationId: callerRegistrationId, completion: completion)
+                }
+
+            }
+        }
+    }
+
 
     @objc public func showCallkitIncoming(
         _ data: Data,
@@ -569,15 +613,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         completion: ((Error?) -> Void)?
     ) {
         let uuid = UUID(uuidString: data.uuid)
-        
-        if (self.isCallkitInProgress == true)  {
-            if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
-                appDelegate.onSilentlyReject(callerRegistrationId: callerRegistrationId, rejectedCallUUID: uuid!.uuidString)
-            }
-
-            self.isCallkitInProgress = false
-            return
-        }
 
         writeExistingCallTimestampToFile()
         writeToFile(content: callerRegistrationId)
@@ -603,7 +638,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
         self.sharedProvider?.reportNewIncomingCall(with: uuid!, update: callUpdate) { error in
             completion?(error)
-
             if(error == nil) {
                 let call = Call(uuid: uuid!, data: data)
                 call.handle = data.handle
