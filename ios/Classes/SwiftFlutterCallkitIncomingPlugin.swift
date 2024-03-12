@@ -229,7 +229,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             do {
                 try FileManager.default.removeItem(at: fileURL)
             } catch {
-                print("Error deleting file: \(error)")g
+                print("Error deleting file: \(error)")
             }
         }
     }
