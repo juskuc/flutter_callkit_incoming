@@ -172,23 +172,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         }
     }
 
-    func writeExistingCallTimestampToFile() {
-        let fileURL = getDocumentsDirectory().appendingPathComponent("call_timestamp.txt")
-
-        // Create the file if it does not exist
-        if !FileManager.default.fileExists(atPath: fileURL.path) {
-            FileManager.default.createFile(atPath: fileURL.path, contents: nil)
-        }
-
-        // Write unix timestamp in milliseconds
-        let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
-        do {
-            try String(timestamp).write(to: fileURL, atomically: true, encoding: .utf8)
-        } catch {
-            print("Error writing to file: \(error)")
-        }
-    }
-
     func readCrashFlagFile() -> Bool {
         let fileURL = getDocumentsDirectory().appendingPathComponent("crash_flag.txt")
 
@@ -558,53 +541,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         }
         return nil
     }
-    
-    @objc public func endAllCallsAndShowIncomingCall(
-        _ data: Data,
-        fromPushKit: Bool,
-        callerRegistrationId: String,
-        completion: ((Error?) -> Void)?
-    ) {
-        self.isCallEndedByCallkitClick = true
-
-        let callController = self.callManager.callController
-
-        // Check if there are any existing calls
-        if callController.callObserver.calls.isEmpty {
-            // If there are no existing calls, directly show incoming call
-            showCallkitIncoming(data, fromPushKit: fromPushKit, callerRegistrationId: callerRegistrationId, completion: completion)
-            return
-        }
-
-        // Iterate through existing calls and create end call actions
-        var endCallActions: [CXEndCallAction] = []
-        for call in callController.callObserver.calls {
-            let endCallAction = CXEndCallAction(call: call.uuid)
-            endCallActions.append(endCallAction)
-        }
-
-        // Create a transaction and add end call actions
-        let endCallTransaction = CXTransaction()
-
-        // add end call actions
-        for endCallAction in endCallActions {
-            endCallTransaction.addAction(endCallAction)
-        }
-
-        // Request the transaction to end all existing calls
-        callController.request(endCallTransaction) { error in
-            if let error = error {
-                // Handle error appropriately
-            } else {
-                // Give some time to end previous calls, then show incoming call
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) {
-                    self.showCallkitIncoming(data, fromPushKit: fromPushKit, callerRegistrationId: callerRegistrationId, completion: completion)
-                }
-
-            }
-        }
-    }
-
 
     @objc public func showCallkitIncoming(
         _ data: Data,
@@ -614,8 +550,8 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     ) {
         let uuid = UUID(uuidString: data.uuid)
 
-        writeExistingCallTimestampToFile()
         writeToFile(content: callerRegistrationId)
+        self.isCallEndedByCallkitClick = true
         self.isVideoCall = data.type > 0 ? true : false
         self.isSpeakerEnabled = self.isVideoCall
 
@@ -645,6 +581,9 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
                 self.sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_INCOMING, data.toJSON())
                 self.endCallNotExist(data)
             } else {
+                if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
+                    appDelegate.sendLog("Error showCallkitIncoming: \(error?.localizedDescription ?? "")", data: data.toJSON())
+                }
                 NSLog("[FLUTTER] [SWIFT] Report new incoming call completion, error: \(String(describing: error))")
             }
         }
