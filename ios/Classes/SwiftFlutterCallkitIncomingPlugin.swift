@@ -1020,6 +1020,16 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             }
         }
 
+        self.outgoingCall?.endCall()
+        if(self.outgoingCall != nil){
+            self.outgoingCall = nil
+        }
+
+        self.answerCall?.endCall()
+        if(self.answerCall != nil){
+            self.answerCall = nil
+        }
+
         self.outgoingCall = nil
     }
 
@@ -1033,6 +1043,10 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         call.isMuted = action.isOnHold
         self.callManager.setHold(call: call, onHold: action.isOnHold)
         sendHoldEvent(action.callUUID.uuidString, action.isOnHold)
+
+        if (call.isOnHold == false) {
+            self.enableWebRTCAudio()
+        }
         action.fulfill()
     }
 
@@ -1112,16 +1126,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
         let audioSession = AVAudioSession.sharedInstance()
         endedPlayer?.play()
-
-        self.outgoingCall?.endCall()
-        if(self.outgoingCall != nil){
-            self.outgoingCall = nil
-        }
-
-        self.answerCall?.endCall()
-        if(self.answerCall != nil){
-            self.answerCall = nil
-        }
 
         RTCAudioSession.sharedInstance().audioSessionDidDeactivate(audioSession)
         RTCAudioSession.sharedInstance().isAudioEnabled = false
