@@ -334,7 +334,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
                 self.data = Data(args: getArgs)
                 let callerRegistrationId = getArgs["callerRegistrationId"] as? String ?? ""
                 let completion = getArgs["completion"] as? ((Error?) -> Void)? ?? nil
-                endAllCallsAndShowIncomingCall(self.data!, fromPushKit: false, callerRegistrationId: callerRegistrationId, completion: completion)
+                showCallkitIncoming(self.data!, fromPushKit: false, callerRegistrationId: callerRegistrationId, completion: completion)
             }
             result("OK")
             break
