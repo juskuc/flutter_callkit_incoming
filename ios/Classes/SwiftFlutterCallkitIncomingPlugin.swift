@@ -216,8 +216,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             } else {
                 try logEntry.write(to: fileURL, atomically: true, encoding: .utf8)
             }
-
-            print("Logged to file: \(fileURL.absoluteString)")
         } catch {
             uiAppDelegate?.sendLog("[SwiftFlutterCallkitIncomingPlugin] logToFile() encountered an error", data: ["error": error.localizedDescription])
         }
@@ -572,7 +570,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     }
 
     @objc public func getAcceptedCall() -> Data? {
-        NSLog("Call data ids \(String(describing: data?.uuid)) \(String(describing: answerCall?.uuid.uuidString))")
         if data?.uuid.lowercased() == answerCall?.uuid.uuidString.lowercased() {
             return data
         }
@@ -1164,7 +1161,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
         if !interrupted,
            rtcSession.category != AVAudioSession.Category.playAndRecord.rawValue {
-            NSLog("rtc session category is not playAndRecord")
         }
     }
 
