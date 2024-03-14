@@ -57,6 +57,8 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     private var isSpeakerEnabled = false
     private var isCallkitInProgress = false
 
+    private var uiAppDelegate: CallkitIncomingAppDelegate?
+
     private func sendEvent(_ event: String, _ body: [String : Any?]?) {
         if silenceEvents {
             print(event, " silenced")
@@ -98,6 +100,8 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         self.callManager = CallManager()
         callObserver = CXCallObserver()
         super.init()
+
+        uiAppDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate
 
         callObserver.setDelegate(self, queue: nil)
         setupNotifications()
@@ -186,6 +190,36 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             }
         } else {
             return false
+        }
+    }
+
+    @objc public func logToFile(message: String, arguments: [String]) {
+        let fileManager = FileManager.default
+
+        do {
+            // pass message and arguments to the method
+            let documentsURL = try fileManager.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+            let fileURL = documentsURL.appendingPathComponent("log.txt")
+
+            // Construct the log entry
+            var logEntry = "\(Date()): \(message)"
+            if !arguments.isEmpty {
+                logEntry += " with arguments: \(arguments.joined(separator: ", "))"
+            }
+            logEntry += "\n"
+
+            // Append to the log file
+            if let fileHandle = try? FileHandle(forWritingTo: fileURL) {
+                fileHandle.seekToEndOfFile()
+                fileHandle.write(logEntry.data(using: .utf8)!)
+                fileHandle.closeFile()
+            } else {
+                try logEntry.write(to: fileURL, atomically: true, encoding: .utf8)
+            }
+
+            print("Logged to file: \(fileURL.absoluteString)")
+        } catch {
+            uiAppDelegate?.sendLog("[SwiftFlutterCallkitIncomingPlugin] logToFile() encountered an error", data: ["error": error.localizedDescription])
         }
     }
 
@@ -417,8 +451,11 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             break
         case "fulfillEndCall":
             if (self.shouldClearFile) {
-                self.endCallAction?.fulfill()
-                self.endCallAction = nil
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    self.clearFile()
+                    self.endCallAction?.fulfill()
+                    self.endCallAction = nil
+                }
                 result("OK")
                 return
             }
@@ -548,6 +585,8 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         callerRegistrationId: String,
         completion: ((Error?) -> Void)?
     ) {
+        // Call logToFile here
+        logToFile(message: "[SwiftFlutterCallkitIncomingPlugin] showCallkitIncoming() called", arguments: [data.toJSON().description])
         let uuid = UUID(uuidString: data.uuid)
 
         writeToFile(content: callerRegistrationId)
@@ -563,6 +602,8 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         var handle: CXHandle?
         handle = CXHandle(type: self.getHandleType(data.handleType), value: data.getEncryptHandle())
 
+        logToFile(message: "[SwiftFlutterCallkitIncomingPlugin] showCallkitIncoming() handle received", arguments: [])
+
         let callUpdate = CXCallUpdate()
         callUpdate.remoteHandle = handle
         callUpdate.supportsDTMF = data.supportsDTMF
@@ -572,18 +613,18 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         callUpdate.hasVideo = data.type > 0 ? true : false
         callUpdate.localizedCallerName = data.nameCaller
 
+        logToFile(message: "[SwiftFlutterCallkitIncomingPlugin] showCallkitIncoming() calling reportNewIncomingCall()", arguments: [])
         self.sharedProvider?.reportNewIncomingCall(with: uuid!, update: callUpdate) { error in
             completion?(error)
             if(error == nil) {
+                self.logToFile(message: "[SwiftFlutterCallkitIncomingPlugin] reportNewIncomingCall() success", arguments: [])
                 let call = Call(uuid: uuid!, data: data)
                 call.handle = data.handle
                 self.callManager.addCall(call)
                 self.sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_INCOMING, data.toJSON())
                 self.endCallNotExist(data)
             } else {
-                if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
-                    appDelegate.sendLog("Error showCallkitIncoming: \(error?.localizedDescription ?? "")", data: data.toJSON())
-                }
+                self.logToFile(message: "[SwiftFlutterCallkitIncomingPlugin] reportNewIncomingCall() encountered an error", arguments: [error?.localizedDescription ?? ""])
                 NSLog("[FLUTTER] [SWIFT] Report new incoming call completion, error: \(String(describing: error))")
             }
         }
@@ -905,6 +946,8 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             action.fail()
             return
         }
+        logToFile(message: "[SwiftFlutterCallkitIncomingPlugin] CXAnswerCallAction()", arguments: [])
+
         call.hasConnectDidChange = { [weak self] in
             self?.sharedProvider?.reportOutgoingCall(with: call.uuid, connectedAt: call.connectedData)
         }
@@ -918,11 +961,14 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
 
     public func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
+        logToFile(message: "[SwiftFlutterCallkitIncomingPlugin] CXEndCallAction() with uuid: \(action.callUUID.uuidString), answerCall: \(String(describing: answerCall?.uuid.uuidString)), outgoingCall: \(String(describing: outgoingCall?.uuid.uuidString))", arguments: [])
         self.shouldClearFile = false
         let isEndedByMeThroughCallkit = isCallEndedByCallkitClick
         self.isCallEndedByCallkitClick = true
         ringingPlayer?.stop()
         guard let call = self.callManager.callWithUUID(uuid: action.callUUID) else {
+            logToFile(message: "[SwiftFlutterCallkitIncomingPlugin] CXEndCallAction() Call is not found", arguments: [])
+
             if(self.answerCall == nil && self.outgoingCall == nil){
                 sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_TIMEOUT, self.data?.toJSON())
             } else {
