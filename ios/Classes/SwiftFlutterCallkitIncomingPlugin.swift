@@ -194,31 +194,31 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     }
 
     @objc public func logToFile(message: String, arguments: [String]) {
-        let fileManager = FileManager.default
-
-        do {
-            // pass message and arguments to the method
-            let documentsURL = try fileManager.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-            let fileURL = documentsURL.appendingPathComponent("log.txt")
-
-            // Construct the log entry
-            var logEntry = "\(Date()): \(message)"
-            if !arguments.isEmpty {
-                logEntry += " with arguments: \(arguments.joined(separator: ", "))"
-            }
-            logEntry += "\n"
-
-            // Append to the log file
-            if let fileHandle = try? FileHandle(forWritingTo: fileURL) {
-                fileHandle.seekToEndOfFile()
-                fileHandle.write(logEntry.data(using: .utf8)!)
-                fileHandle.closeFile()
-            } else {
-                try logEntry.write(to: fileURL, atomically: true, encoding: .utf8)
-            }
-        } catch {
-            uiAppDelegate?.sendLog("[SwiftFlutterCallkitIncomingPlugin] logToFile() encountered an error", data: ["error": error.localizedDescription])
-        }
+//         let fileManager = FileManager.default
+//
+//         do {
+//             // pass message and arguments to the method
+//             let documentsURL = try fileManager.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+//             let fileURL = documentsURL.appendingPathComponent("log.txt")
+//
+//             // Construct the log entry
+//             var logEntry = "\(Date()): \(message)"
+//             if !arguments.isEmpty {
+//                 logEntry += " with arguments: \(arguments.joined(separator: ", "))"
+//             }
+//             logEntry += "\n"
+//
+//             // Append to the log file
+//             if let fileHandle = try? FileHandle(forWritingTo: fileURL) {
+//                 fileHandle.seekToEndOfFile()
+//                 fileHandle.write(logEntry.data(using: .utf8)!)
+//                 fileHandle.closeFile()
+//             } else {
+//                 try logEntry.write(to: fileURL, atomically: true, encoding: .utf8)
+//             }
+//         } catch {
+//             uiAppDelegate?.sendLog("[SwiftFlutterCallkitIncomingPlugin] logToFile() encountered an error", data: ["error": error.localizedDescription])
+//         }
     }
 
     func readFromFile() -> String? {
