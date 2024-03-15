@@ -96,6 +96,33 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         return FlutterEventChannel(name: "flutter_callkit_incoming_events", binaryMessenger: messenger)
     }
 
+    func appendToLogFile(_ log: String) {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        let timestamp = dateFormatter.string(from: Date())
+
+        let fileManager = FileManager.default
+        do {
+            let documentsURL = try fileManager.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
+            let logFileURL = documentsURL.appendingPathComponent("logs.txt")
+
+            if !fileManager.fileExists(atPath: logFileURL.path) {
+                fileManager.createFile(atPath: logFileURL.path, contents: nil, attributes: nil)
+            }
+
+            if let fileHandle = try? FileHandle(forWritingTo: logFileURL) {
+                let logString = "[\(timestamp)] \(log)\n"
+                fileHandle.seekToEndOfFile()
+                fileHandle.write(logString.data(using: .utf8)!)
+                fileHandle.closeFile()
+            } else {
+                print("Failed to open log file for writing")
+            }
+        } catch {
+            print("Error accessing documents directory: \(error)")
+        }
+    }
+
     public init(messenger: FlutterBinaryMessenger) {
         self.callManager = CallManager()
         callObserver = CXCallObserver()
@@ -264,6 +291,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     }
 
     func reconnectWebRTCAudio() {
+        appendToLogFile("reconnectWebRTCAudio() called")
         if (reconnectPlayer?.isPlaying == true) {
             return
         }
@@ -272,6 +300,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     }
 
     func enableWebRTCAudio(isReconnect: Bool = false) {
+        appendToLogFile("enableWebRTCAudio() called - isReconnect: \(isReconnect)")
         // Stop ringing player
         self.reconnectPlayer?.stop()
         self.ringingPlayer?.stop()
@@ -288,10 +317,12 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
                 runCount += 1
 
                 if runCount >= maxRuns {
+                    self?.appendToLogFile("enableWebRTCAudio() - maxRuns reached")
                     self?.reconnectPlayer?.stop()
                     self?.ringingPlayer?.stop()
                     timer?.invalidate() // Stop the timer after maxRuns even if activatedAVAudioSession is still nil
                 } else if let activatedAVAudioSession = self?.activatedAVAudioSession {
+                    self?.appendToLogFile("enableWebRTCAudio() - activatedAVAudioSession is not nil, success")
                     self?.reconnectPlayer?.stop()
                     self?.ringingPlayer?.stop()
 
@@ -314,8 +345,10 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         switch call.method {
         case "setIsSpeakerEnabled":
+            appendToLogFile("setIsSpeakerEnabled() called")
             guard let args = call.arguments as? [String: Any] ,
                   let isSpeakerEnabled = args["isSpeakerEnabled"] as? Bool else {
+                appendToLogFile("setIsSpeakerEnabled() called - isSpeakerEnabled is nil")
                 result("OK")
                 return
             }
@@ -380,6 +413,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             }
 
             self.isCallEndedByCallkitClick = true
+            appendToLogFile("startCall() called - \(args)")
 
             if let getArgs = args as? [String: Any] {
                 self.data = Data(args: getArgs["params"] as! [String: Any])
@@ -489,6 +523,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             result(self.callManager.activeCalls())
             break;
         case "endAllCalls":
+            appendToLogFile("endAllCalls() called")
             self.isCallEndedByCallkitClick = false
             self.callManager.endCallAlls()
             result("OK")
@@ -523,6 +558,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             break
         case "updateCallerName":
             // Christmas tree :PP
+            appendToLogFile("updateCallerName() called")
             if let args = call.arguments as? [String: Any] {
 
 
@@ -531,27 +567,29 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
                     if let nameCaller = args["callerName"] as? String {
 
-
+                        appendToLogFile("updateCallerName() start")
                         let callUpdate = CXCallUpdate()
                         callUpdate.localizedCallerName = nameCaller
+                        appendToLogFile("updateCallerName() success")
 
                         if let uuid = UUID(uuidString: callId) {
+                            appendToLogFile("updateCallerName() calling reportCall()")
                             self.sharedProvider?.reportCall(with: uuid, updated: callUpdate)
                             result("OK")
                         } else {
-
+                            appendToLogFile("updateCallerName() error - invalid UUID string")
                             // Handle invalid UUID string
                         }
                     } else {
-
+                        appendToLogFile("updateCallerName() error - callerName is not a string")
                         // Handle case where callerName is not a string
                     }
                 } else {
-
+                     appendToLogFile("updateCallerName() error - id is not a string")
                     // Handle case where id is not a string
                 }
             } else {
-
+                appendToLogFile("updateCallerName() error - arguments are not a dictionary")
                 // Handle case where arguments are not a dictionary
             }
             break
@@ -582,8 +620,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         callerRegistrationId: String,
         completion: ((Error?) -> Void)?
     ) {
-        // Call logToFile here
-//         logToFile(message: "[SwiftFlutterCallkitIncomingPlugin] showCallkitIncoming() called", arguments: [data.toJSON().description])
+        appendToLogFile("showCallkitIncoming() called - \(data.toJSON().description)")
         let uuid = UUID(uuidString: data.uuid)
 
         writeToFile(content: callerRegistrationId)
@@ -599,8 +636,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         var handle: CXHandle?
         handle = CXHandle(type: self.getHandleType(data.handleType), value: data.getEncryptHandle())
 
-//         logToFile(message: "[SwiftFlutterCallkitIncomingPlugin] showCallkitIncoming() handle received", arguments: [])
-
         let callUpdate = CXCallUpdate()
         callUpdate.remoteHandle = handle
         callUpdate.supportsDTMF = data.supportsDTMF
@@ -610,19 +645,18 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         callUpdate.hasVideo = data.type > 0 ? true : false
         callUpdate.localizedCallerName = data.nameCaller
 
-//         logToFile(message: "[SwiftFlutterCallkitIncomingPlugin] showCallkitIncoming() calling reportNewIncomingCall()", arguments: [])
+        appendToLogFile("showCallkitIncoming() calling reportNewIncomingCall()")
         self.sharedProvider?.reportNewIncomingCall(with: uuid!, update: callUpdate) { error in
             completion?(error)
             if(error == nil) {
-//                 self.logToFile(message: "[SwiftFlutterCallkitIncomingPlugin] reportNewIncomingCall() success", arguments: [])
+                self.appendToLogFile("showCallkitIncoming() reportNewIncomingCall() success")
                 let call = Call(uuid: uuid!, data: data)
                 call.handle = data.handle
                 self.callManager.addCall(call)
                 self.sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_INCOMING, data.toJSON())
                 self.endCallNotExist(data)
             } else {
-//                 self.logToFile(message: "[SwiftFlutterCallkitIncomingPlugin] reportNewIncomingCall() encountered an error", arguments: [error?.localizedDescription ?? ""])
-                NSLog("[FLUTTER] [SWIFT] Report new incoming call completion, error: \(String(describing: error))")
+                self.appendToLogFile("showCallkitIncoming() reportNewIncomingCall() - error: \(error?.localizedDescription ?? "")")
             }
         }
     }
@@ -811,6 +845,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     }
 
     func configureRTCAudioSession(isVideoCall: Bool){
+        appendToLogFile("configureRTCAudioSession() called - isVideo: \(isVideoCall)")
         let session = RTCAudioSession.sharedInstance()
 
         var options: AVAudioSession.CategoryOptions = []
@@ -924,6 +959,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     }
 
     public func provider(_ provider: CXProvider, perform action: CXStartCallAction) {
+        appendToLogFile("CXStartCallAction() called, CallUUID: \(action.callUUID.uuidString)")
         let call = Call(uuid: action.callUUID, data: self.data!, isOutGoing: true)
         call.handle = action.handle.value
         call.hasStartedConnectDidChange = { [weak self] in
@@ -939,11 +975,12 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     }
 
     public func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
+        appendToLogFile("CXAnswerCallAction() called, CallUUID: \(action.callUUID.uuidString)")
         guard let call = self.callManager.callWithUUID(uuid: action.callUUID) else{
+            appendToLogFile("CXAnswerCallAction() called - Call is nil uuid: \(action.callUUID.uuidString)")
             action.fail()
             return
         }
-        logToFile(message: "[SwiftFlutterCallkitIncomingPlugin] CXAnswerCallAction()", arguments: [])
 
         call.hasConnectDidChange = { [weak self] in
             self?.sharedProvider?.reportOutgoingCall(with: call.uuid, connectedAt: call.connectedData)
@@ -958,13 +995,12 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
 
     public func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
-        logToFile(message: "[SwiftFlutterCallkitIncomingPlugin] CXEndCallAction() with uuid: \(action.callUUID.uuidString), answerCall: \(String(describing: answerCall?.uuid.uuidString)), outgoingCall: \(String(describing: outgoingCall?.uuid.uuidString))", arguments: [])
+        appendToLogFile("CXEndCallAction() called, CallUUID: \(action.callUUID.uuidString)")
         self.shouldClearFile = false
         let isEndedByMeThroughCallkit = isCallEndedByCallkitClick
         self.isCallEndedByCallkitClick = true
         ringingPlayer?.stop()
         guard let call = self.callManager.callWithUUID(uuid: action.callUUID) else {
-            logToFile(message: "[SwiftFlutterCallkitIncomingPlugin] CXEndCallAction() Call is not found", arguments: [])
 
             if(self.answerCall == nil && self.outgoingCall == nil){
                 sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_TIMEOUT, self.data?.toJSON())
@@ -1074,9 +1110,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     }
 
     public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
-        if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
-            appDelegate.sendLog("AudioSession didActivate", data: [])
-        }
+        appendToLogFile("provider didActivate audioSession")
         activatedAVAudioSession = audioSession
 
         if (self.outgoingCall != nil) {
@@ -1106,6 +1140,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     }
 
     public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
+        appendToLogFile("provider didDeactivate audioSession")
         let audioSession = AVAudioSession.sharedInstance()
         endedPlayer?.play()
 
@@ -1140,7 +1175,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         guard let userInfo = notification.userInfo else { return }
         guard let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt else { return }
         guard let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else { return }
-
+        appendToLogFile("handleRouteChange() called - reason: \(reason)")
         switch reason {
         case .override:
             /*checkIfInterruptionUnhandled*/()
@@ -1171,6 +1206,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
 
 
     private func defineAndSetOutput() {
+        appendToLogFile("defineAndSetOutput() called - isSpeakerEnabled: \(self.isSpeakerEnabled)")
         let rtcSession = RTCAudioSession.sharedInstance()
         do {
             rtcSession.lockForConfiguration()
@@ -1181,6 +1217,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             }
             rtcSession.unlockForConfiguration()
         } catch {
+            appendToLogFile("defineAndSetOutput() error: \(error)")
             if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
                 appDelegate.sendLog("defineAndSetOutput error: \(error)", data: [])
             }
@@ -1189,10 +1226,12 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
    }
 
    private func setOutputToDevice() {
+       appendToLogFile("setOutputToDevice() called")
        let rtcSession = RTCAudioSession.sharedInstance()
        do {
            try rtcSession.overrideOutputAudioPort(.none)
        } catch {
+           appendToLogFile("RTC setOutputToDevice error: \(error)")
            if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
                appDelegate.sendLog("RTC setOutputToDevice error: \(error)", data: [])
            }
@@ -1204,6 +1243,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
        do {
             try audioSession.overrideOutputAudioPort(.none)
        } catch {
+            appendToLogFile("AV setOutputToDevice error: \(error)")
             if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
                  appDelegate.sendLog("AV setOutputToDevice error: \(error)", data: [])
             }
@@ -1212,10 +1252,12 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
    }
 
    func setOutputToSpeaker() {
+       appendToLogFile("setOutputToSpeaker() called")
        let rtcSession = RTCAudioSession.sharedInstance()
        do {
            try rtcSession.overrideOutputAudioPort(.speaker)
        } catch {
+            appendToLogFile("RTC setOutputToSpeaker error: \(error)")
             if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
                  appDelegate.sendLog("RTC setOutputToSpeaker error: \(error)", data: [])
             }
@@ -1227,6 +1269,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
        do {
             try audioSession.overrideOutputAudioPort(.speaker)
        } catch {
+            appendToLogFile("AV setOutputToSpeaker error: \(error)")
             if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
                  appDelegate.sendLog("AV setOutputToSpeaker error: \(error)", data: [])
             }
