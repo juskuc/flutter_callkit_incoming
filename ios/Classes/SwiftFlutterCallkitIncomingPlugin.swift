@@ -583,7 +583,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         completion: ((Error?) -> Void)?
     ) {
         // Call logToFile here
-        logToFile(message: "[SwiftFlutterCallkitIncomingPlugin] showCallkitIncoming() called", arguments: [data.toJSON().description])
+//         logToFile(message: "[SwiftFlutterCallkitIncomingPlugin] showCallkitIncoming() called", arguments: [data.toJSON().description])
         let uuid = UUID(uuidString: data.uuid)
 
         writeToFile(content: callerRegistrationId)
@@ -599,7 +599,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         var handle: CXHandle?
         handle = CXHandle(type: self.getHandleType(data.handleType), value: data.getEncryptHandle())
 
-        logToFile(message: "[SwiftFlutterCallkitIncomingPlugin] showCallkitIncoming() handle received", arguments: [])
+//         logToFile(message: "[SwiftFlutterCallkitIncomingPlugin] showCallkitIncoming() handle received", arguments: [])
 
         let callUpdate = CXCallUpdate()
         callUpdate.remoteHandle = handle
@@ -610,18 +610,18 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         callUpdate.hasVideo = data.type > 0 ? true : false
         callUpdate.localizedCallerName = data.nameCaller
 
-        logToFile(message: "[SwiftFlutterCallkitIncomingPlugin] showCallkitIncoming() calling reportNewIncomingCall()", arguments: [])
+//         logToFile(message: "[SwiftFlutterCallkitIncomingPlugin] showCallkitIncoming() calling reportNewIncomingCall()", arguments: [])
         self.sharedProvider?.reportNewIncomingCall(with: uuid!, update: callUpdate) { error in
             completion?(error)
             if(error == nil) {
-                self.logToFile(message: "[SwiftFlutterCallkitIncomingPlugin] reportNewIncomingCall() success", arguments: [])
+//                 self.logToFile(message: "[SwiftFlutterCallkitIncomingPlugin] reportNewIncomingCall() success", arguments: [])
                 let call = Call(uuid: uuid!, data: data)
                 call.handle = data.handle
                 self.callManager.addCall(call)
                 self.sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_INCOMING, data.toJSON())
                 self.endCallNotExist(data)
             } else {
-                self.logToFile(message: "[SwiftFlutterCallkitIncomingPlugin] reportNewIncomingCall() encountered an error", arguments: [error?.localizedDescription ?? ""])
+//                 self.logToFile(message: "[SwiftFlutterCallkitIncomingPlugin] reportNewIncomingCall() encountered an error", arguments: [error?.localizedDescription ?? ""])
                 NSLog("[FLUTTER] [SWIFT] Report new incoming call completion, error: \(String(describing: error))")
             }
         }
